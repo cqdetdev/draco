@@ -1,9 +1,14 @@
 package draco
 
 import (
+	"bytes"
 	"fmt"
 
 	"github.com/cqdetdev/draco/draco/legacy"
+	"github.com/cqdetdev/draco/draco/state"
+	"github.com/df-mc/dragonfly/server/block"
+	"github.com/df-mc/dragonfly/server/world"
+	"github.com/df-mc/dragonfly/server/world/chunk"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 )
@@ -124,6 +129,41 @@ func (p Protocol) ConvertFromLatest(pk packet.Packet) packet.Packet {
 		new.GameVersion = old.GameVersion
 		new.ServerBlockStateChecksum = old.ServerBlockStateChecksum
 		return new
+	case packet.IDLevelChunk:
+		lc := pk.(*packet.LevelChunk)
+		air := world.BlockRuntimeID(block.Air{})
+		c, err := chunk.NetworkDecode(air, lc.RawPayload, int(lc.SubChunkCount), world.Overworld.Range())
+		if err != nil {
+			panic(err)
+		}
+		for _, s := range c.Sub() {
+			for _, l := range s.Layers() {
+				l.Palette().Replace(func(newRuntimeID uint32) uint32 {
+					name, props, ok := chunk.RuntimeIDToState(newRuntimeID)
+					if !ok {
+						panic("could not convert it idk (to new)")
+					}
+
+					fmt.Printf("%s %v\n", name, props)
+
+					oldRuntimeID, ok := state.StateToRuntimeID(name, props)
+					if !ok {
+						panic("could not convert it idk (to old)")
+					}
+					return oldRuntimeID
+				})
+			}
+		}
+		
+		buf, data := bytes.NewBuffer(nil), chunk.Encode(c, chunk.NetworkEncoding)
+		for i := range data.SubChunks {
+			_, _ = buf.Write(data.SubChunks[i])
+		}
+		_, _ = buf.Write(data.Biomes)
+		buf.WriteByte(0)
+		
+		lc.RawPayload = buf.Bytes()
+		return lc
 	}
 	return pk
 }
