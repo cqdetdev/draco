@@ -18,7 +18,7 @@ import (
 )
 
 var (
-	//go:embed 1.18.10.nbt
+	//go:embed block_states.nbt
 	blockStateData []byte
 	// blocks holds a list of all registered Blocks indexed by their runtime ID. Blocks that were not explicitly
 	// registered are of the type unknownBlock.
@@ -51,6 +51,14 @@ func init() {
 	}
 
 	StateToRuntimeID = func(name string, properties map[string]interface{}) (runtimeID uint32, found bool) {
+		switch name {
+		case "minecraft:invisible_bedrock":
+			name = "minecraft:invisibleBedrock"
+		case "minecraft:sea_lantern":
+			name = "minecraft:seaLantern"
+		case "minecraft:concrete_powder":
+			name = "minecraft:concretePowder"
+		}
 		rid, ok := stateRuntimeIDs[stateHash{name: name, properties: hashProperties(properties)}]
 		return rid, ok
 	}

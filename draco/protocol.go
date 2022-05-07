@@ -144,24 +144,23 @@ func (p Protocol) ConvertFromLatest(pk packet.Packet) packet.Packet {
 						panic("could not convert it idk (to new)")
 					}
 
-					fmt.Printf("%s %v\n", name, props)
-
 					oldRuntimeID, ok := state.StateToRuntimeID(name, props)
 					if !ok {
+						fmt.Printf("%s %v\n", name, props)
 						panic("could not convert it idk (to old)")
 					}
 					return oldRuntimeID
 				})
 			}
 		}
-		
+
 		buf, data := bytes.NewBuffer(nil), chunk.Encode(c, chunk.NetworkEncoding)
 		for i := range data.SubChunks {
 			_, _ = buf.Write(data.SubChunks[i])
 		}
 		_, _ = buf.Write(data.Biomes)
 		buf.WriteByte(0)
-		
+
 		lc.RawPayload = buf.Bytes()
 		return lc
 	}
