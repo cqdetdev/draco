@@ -10,6 +10,7 @@ import (
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/df-mc/dragonfly/server/world/chunk"
 	"github.com/sandertv/gophertunnel/minecraft"
+	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 )
 
@@ -30,16 +31,26 @@ func (p Protocol) Packets() packet.Pool { return packet.NewPool() }
 func (p Protocol) ConvertToLatest(pk packet.Packet) packet.Packet {
 	switch pk.ID() {
 	// debug only
-	case packet.IDPacketViolationWarning:
-		v := pk.(*packet.PacketViolationWarning)
-		fmt.Printf("Violation %d\n", v.PacketID)
-		return v
+	case packet.IDResourcePackClientResponse:
+		r := pk.(*packet.ResourcePackClientResponse)
+		fmt.Printf("Response %d\n", r.Response)
+		fmt.Printf("Packs: %v\n", r.PacksToDownload)
+		return r
 	default:
 		return pk
 	}
 }
 func (p Protocol) ConvertFromLatest(pk packet.Packet) packet.Packet {
 	switch pk.ID() {
+	case packet.IDCreativeContent:
+		c := pk.(*packet.CreativeContent)
+		// iterate over items
+		for i := 0; i < len(c.Items); i++ {
+		}
+	case packet.IDPacketViolationWarning:
+		v := pk.(*packet.PacketViolationWarning)
+		fmt.Printf("Violation %d\n", v.PacketID)
+		return v
 	case packet.IDAddPlayer:
 		old := pk.(*packet.AddPlayer)
 		new := &legacy.AddPlayer{}
@@ -53,7 +64,12 @@ func (p Protocol) ConvertFromLatest(pk packet.Packet) packet.Packet {
 		new.Pitch = old.Pitch
 		new.Yaw = old.Yaw
 		new.HeadYaw = old.HeadYaw
+		old.HeldItem.Stack.NetworkID = 0
 		new.HeldItem = old.HeldItem
+		old.HeldItem.StackNetworkID = 0
+		if old.HeldItem.Stack.HasNetworkID {
+			new.HeldItem.StackNetworkID = old.HeldItem.StackNetworkID
+		}
 		new.EntityMetadata = old.EntityMetadata
 		new.Flags = old.Flags
 		new.CommandPermissionLevel = old.CommandPermissionLevel
@@ -74,7 +90,7 @@ func (p Protocol) ConvertFromLatest(pk packet.Packet) packet.Packet {
 		new.PlayerPosition = old.PlayerPosition
 		new.Pitch = old.Pitch
 		new.Yaw = old.Yaw
-		new.WorldSeed = old.WorldSeed
+		new.WorldSeed = int32(old.WorldSeed)
 		new.SpawnBiomeType = old.SpawnBiomeType
 		new.UserDefinedBiomeName = old.UserDefinedBiomeName
 		new.Dimension = old.Dimension
@@ -91,6 +107,7 @@ func (p Protocol) ConvertFromLatest(pk packet.Packet) packet.Packet {
 		new.LightningLevel = old.LightningLevel
 		new.ConfirmedPlatformLockedContent = old.ConfirmedPlatformLockedContent
 		new.MultiPlayerGame = old.MultiPlayerGame
+		new.MultiPlayerCorrelationID = old.MultiPlayerCorrelationID
 		new.LANBroadcastEnabled = old.LANBroadcastEnabled
 		new.XBLBroadcastMode = old.XBLBroadcastMode
 		new.CommandsEnabled = old.CommandsEnabled
@@ -123,7 +140,25 @@ func (p Protocol) ConvertFromLatest(pk packet.Packet) packet.Packet {
 		new.Time = old.Time
 		new.EnchantmentSeed = old.EnchantmentSeed
 		new.Blocks = old.Blocks
-		new.Items = old.Items
+		for _, i := range old.Items {
+			it, ok := world.ItemByRuntimeID(int32(i.RuntimeID), 0)
+			name, _ := it.EncodeItem()
+			if !ok {
+				panic("could not convert it idk (to new)")
+			}
+
+			oldRuntimeID, meta, ok := state.ItemRuntimeID(it)
+			if !ok {
+				fmt.Printf("%s %v\n", name, meta)
+				panic("could not convert it idk (to old)")
+			}
+			fmt.Printf("(%s) New: %d | Old: %d\n", name, i.RuntimeID, oldRuntimeID)
+			new.Items = append(new.Items, protocol.ItemEntry{
+				Name:           name,
+				RuntimeID:      int16(oldRuntimeID),
+				ComponentBased: i.ComponentBased,
+			})
+		}
 		new.MultiPlayerCorrelationID = old.MultiPlayerCorrelationID
 		new.ServerAuthoritativeInventory = old.ServerAuthoritativeInventory
 		new.GameVersion = old.GameVersion
@@ -149,6 +184,7 @@ func (p Protocol) ConvertFromLatest(pk packet.Packet) packet.Packet {
 						fmt.Printf("%s %v\n", name, props)
 						panic("could not convert it idk (to old)")
 					}
+					// fmt.Printf("(%s) New: %d | Old: %d\n", name, newRuntimeID, oldRuntimeID)
 					return oldRuntimeID
 				})
 			}
@@ -160,9 +196,21 @@ func (p Protocol) ConvertFromLatest(pk packet.Packet) packet.Packet {
 		}
 		_, _ = buf.Write(data.Biomes)
 		buf.WriteByte(0)
-
 		lc.RawPayload = buf.Bytes()
 		return lc
+	case packet.IDAddVolumeEntity:
+		old := pk.(*packet.AddVolumeEntity)
+		new := &legacy.AddVolumeEntity{}
+		new.EntityRuntimeID = old.EntityRuntimeID
+		new.EntityMetadata = old.EntityMetadata
+		new.EncodingIdentifier = old.EncodingIdentifier
+		new.InstanceIdentifier = old.InstanceIdentifier
+		new.EngineVersion = old.EngineVersion
+		return new
+	case packet.IDPlayStatus:
+		fmt.Println("PlayStatus")
+		return pk
 	}
+
 	return pk
 }

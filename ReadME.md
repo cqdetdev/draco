@@ -16,6 +16,8 @@ this allows players to then be able to use the 1.18.10 x86 build (which does NOT
 
 this project is still in development and does NOT work in it's current state (as of 5/1/2022)
 
+*Could this be used for client-side multiversion on other versions like 1.16.100 or 1.12.0?* 
+
 # Further Notes
 
 fuck mojang

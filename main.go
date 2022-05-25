@@ -2,8 +2,10 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"log"
+	"net"
 	"os"
 
 	// "sync"
@@ -11,6 +13,7 @@ import (
 	"github.com/cqdetdev/draco/draco"
 	"github.com/pelletier/go-toml"
 	"github.com/sandertv/gophertunnel/minecraft"
+	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"golang.org/x/oauth2"
 )
 
@@ -31,6 +34,7 @@ func main() {
 		AcceptedProtocols: []minecraft.Protocol{
 			draco.Protocol{},
 		},
+		PacketFunc:     packetHandle,
 		StatusProvider: p,
 	}.Listen("raknet", c.Connection.LocalAddress)
 	if err != nil {
@@ -51,8 +55,10 @@ func main() {
 
 func handleConn(conn *minecraft.Conn, listener *minecraft.Listener, c config, src oauth2.TokenSource) {
 	serverConn, err := minecraft.Dialer{
-		TokenSource: src,
-		ClientData:  conn.ClientData(),
+		TokenSource:       src,
+		ClientData:        conn.ClientData(),
+		EnableClientCache: true,
+		// Protocol:    draco.Protocol{},
 	}.Dial("raknet", c.Connection.RemoteAddress)
 	if err != nil {
 		panic(err)
@@ -130,4 +136,8 @@ func readConfig() config {
 		log.Fatalf("error writing config file: %v", err)
 	}
 	return c
+}
+
+func packetHandle(header packet.Header, payload []byte, src net.Addr, dst net.Addr) {
+	fmt.Printf("%v -> %v (0x%X)\n", src, dst, header.PacketID)
 }

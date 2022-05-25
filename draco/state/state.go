@@ -12,7 +12,6 @@ import (
 	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/entity/physics"
 	"github.com/df-mc/dragonfly/server/world"
-	"github.com/df-mc/dragonfly/server/world/chunk"
 	"github.com/go-gl/mathgl/mgl64"
 	"github.com/sandertv/gophertunnel/minecraft/nbt"
 )
@@ -35,9 +34,41 @@ var (
 	airRID uint32
 )
 
+// itemHash is a combination of an item's name and metadata. It is used as a key in hash maps.
+type itemHash struct {
+	name string
+	meta int16
+}
+
+var (
+	//go:embed item_runtime_ids.nbt
+	itemRuntimeIDData []byte
+	// items holds a list of all registered items, indexed using the itemHash created when calling
+	// Item.EncodeItem.
+	items = map[itemHash]world.Item{}
+	// customItems holds a list of all registered custom items.
+	customItems []world.CustomItem
+	// itemRuntimeIDsToNames holds a map to translate item runtime IDs to string IDs.
+	itemRuntimeIDsToNames = map[int32]string{}
+	// itemNamesToRuntimeIDs holds a map to translate item string IDs to runtime IDs.
+	itemNamesToRuntimeIDs = map[string]int32{}
+)
+
 var StateToRuntimeID func(string, map[string]interface{}) (uint32, bool)
+var RuntimeIDToState func(runtimeID uint32) (name string, properties map[string]any, found bool)
 
 func init() {
+	var m map[string]int32
+	err := nbt.Unmarshal(itemRuntimeIDData, &m)
+
+	if err != nil {
+		panic(err)
+	}
+	for name, rid := range m {
+		itemNamesToRuntimeIDs[name] = rid
+		itemRuntimeIDsToNames[rid] = name
+	}
+
 	dec := nbt.NewDecoder(bytes.NewBuffer(blockStateData))
 
 	// Register all block states present in the block_states.nbt file. These are all possible options registered
@@ -48,6 +79,14 @@ func init() {
 			break
 		}
 		registerBlockState(s)
+	}
+
+	RuntimeIDToState = func(runtimeID uint32) (name string, properties map[string]any, found bool) {
+		if runtimeID >= uint32(len(blocks)) {
+			return "", nil, false
+		}
+		name, properties = blocks[runtimeID].EncodeBlock()
+		return name, properties, true
 	}
 
 	StateToRuntimeID = func(name string, properties map[string]interface{}) (runtimeID uint32, found bool) {
@@ -80,8 +119,8 @@ func registerBlockState(s blockState) {
 
 	nbtBlocks = append(nbtBlocks, false)
 	randomTickBlocks = append(randomTickBlocks, false)
-	chunk.FilteringBlocks = append(chunk.FilteringBlocks, 15)
-	chunk.LightBlocks = append(chunk.LightBlocks, 0)
+	// chunk.FilteringBlocks = append(chunk.FilteringBlocks, 15)
+	// chunk.LightBlocks = append(chunk.LightBlocks, 0)
 }
 
 // unknownModel is the model used for unknown blocks. It is the equivalent of a fully solid model.
@@ -168,4 +207,46 @@ func hashProperties(properties map[string]interface{}) string {
 	}
 
 	return b.String()
+}
+
+// ItemByName attempts to return an item by a name and a metadata value.
+func ItemByName(name string, meta int16) (world.Item, bool) {
+	it, ok := items[itemHash{name: name, meta: meta}]
+	if !ok {
+		// Also try obtaining the item with a metadata value of 0, for cases with durability.
+		it, ok = items[itemHash{name: name}]
+	}
+	return it, ok
+}
+
+// ItemRuntimeID attempts to return the runtime ID of the Item passed. False is returned if the Item is not
+// registered.
+func ItemRuntimeID(i world.Item) (rid int32, meta int16, ok bool) {
+	name, meta := i.EncodeItem()
+	rid, ok = itemNamesToRuntimeIDs[name]
+	return rid, meta, ok
+}
+
+// ItemByRuntimeID attempts to return an Item by the runtime ID passed. If no item with that runtime ID exists,
+// false is returned. ItemByRuntimeID also tries to find the item with a metadata value of 0.
+func ItemByRuntimeID(rid int32, meta int16) (world.Item, bool) {
+	name, ok := itemRuntimeIDsToNames[rid]
+	if !ok {
+		return nil, false
+	}
+	return ItemByName(name, meta)
+}
+
+// Items returns a slice of all registered items.
+func Items() []world.Item {
+	m := make([]world.Item, 0, len(items))
+	for _, i := range items {
+		m = append(m, i)
+	}
+	return m
+}
+
+// CustomItems returns a slice of all registered custom items.
+func CustomItems() []world.CustomItem {
+	return customItems
 }
