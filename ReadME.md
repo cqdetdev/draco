@@ -14,7 +14,7 @@ this allows players to then be able to use the 1.18.10 x86 build (which does NOT
 
 # Notes
 
-this project is still in development and does NOT work in it's current state (as of 5/1/2022)
+this project is still in development but does NOW SUPPORT a successful login into a server from 1.18.12 (as of 5/28/2022). However, note that it is still not practical to use this proxy since a) there are alot of unhandled packets that still need to be worked on and b) chunks are not handled properly meaning you will spawn into an empty void.
 
 *Could this be used for client-side multiversion on other versions like 1.16.100 or 1.12.0?* 
 
