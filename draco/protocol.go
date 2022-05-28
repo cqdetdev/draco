@@ -10,7 +10,6 @@ import (
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/df-mc/dragonfly/server/world/chunk"
 	"github.com/sandertv/gophertunnel/minecraft"
-	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 )
 
@@ -30,12 +29,6 @@ func (Protocol) Ver() string {
 func (p Protocol) Packets() packet.Pool { return packet.NewPool() }
 func (p Protocol) ConvertToLatest(pk packet.Packet) packet.Packet {
 	switch pk.ID() {
-	// debug only
-	case packet.IDResourcePackClientResponse:
-		r := pk.(*packet.ResourcePackClientResponse)
-		fmt.Printf("Response %d\n", r.Response)
-		fmt.Printf("Packs: %v\n", r.PacksToDownload)
-		return r
 	default:
 		return pk
 	}
@@ -140,25 +133,26 @@ func (p Protocol) ConvertFromLatest(pk packet.Packet) packet.Packet {
 		new.Time = old.Time
 		new.EnchantmentSeed = old.EnchantmentSeed
 		new.Blocks = old.Blocks
-		for _, i := range old.Items {
-			it, ok := world.ItemByRuntimeID(int32(i.RuntimeID), 0)
-			name, _ := it.EncodeItem()
-			if !ok {
-				panic("could not convert it idk (to new)")
-			}
+		// for _, i := range old.Items {
+		// 	it, ok := world.ItemByRuntimeID(int32(i.RuntimeID), 0)
+		// 	name, _ := it.EncodeItem()
+		// 	if !ok {
+		// 		panic("could not convert it idk (to new)")
+		// 	}
 
-			oldRuntimeID, meta, ok := state.ItemRuntimeID(it)
-			if !ok {
-				fmt.Printf("%s %v\n", name, meta)
-				panic("could not convert it idk (to old)")
-			}
-			fmt.Printf("(%s) New: %d | Old: %d\n", name, i.RuntimeID, oldRuntimeID)
-			new.Items = append(new.Items, protocol.ItemEntry{
-				Name:           name,
-				RuntimeID:      int16(oldRuntimeID),
-				ComponentBased: i.ComponentBased,
-			})
-		}
+		// 	oldRuntimeID, meta, ok := state.ItemRuntimeID(it)
+		// 	if !ok {
+		// 		fmt.Printf("%s %v\n", name, meta)
+		// 		panic("could not convert it idk (to old)")
+		// 	}
+		// 	fmt.Printf("(%s) New: %d | Old: %d\n", name, i.RuntimeID, oldRuntimeID)
+		// 	new.Items = append(new.Items, protocol.ItemEntry{
+		// 		Name:           name,
+		// 		RuntimeID:      int16(oldRuntimeID),
+		// 		ComponentBased: i.ComponentBased,
+		// 	})
+		// }
+		new.Items = old.Items
 		new.MultiPlayerCorrelationID = old.MultiPlayerCorrelationID
 		new.ServerAuthoritativeInventory = old.ServerAuthoritativeInventory
 		new.GameVersion = old.GameVersion
@@ -207,9 +201,19 @@ func (p Protocol) ConvertFromLatest(pk packet.Packet) packet.Packet {
 		new.InstanceIdentifier = old.InstanceIdentifier
 		new.EngineVersion = old.EngineVersion
 		return new
-	case packet.IDPlayStatus:
-		fmt.Println("PlayStatus")
-		return pk
+	case packet.IDRemoveVolumeEntity:
+		old := pk.(*packet.RemoveVolumeEntity)
+		new := &legacy.RemoveVolumeEntity{}
+		new.EntityRuntimeID = old.EntityRuntimeID
+		return new
+	case packet.IDSpawnParticleEffect:
+		old := pk.(*packet.SpawnParticleEffect)
+		new := &legacy.SpawnParticleEffect{}
+		new.Dimension = old.Dimension
+		new.EntityUniqueID = old.EntityUniqueID
+		new.Position = old.Position
+		new.ParticleName = old.ParticleName
+		return new
 	}
 
 	return pk

@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"sync"
 
 	// "sync"
 
@@ -34,7 +35,7 @@ func main() {
 		AcceptedProtocols: []minecraft.Protocol{
 			draco.Protocol{},
 		},
-		PacketFunc:     packetHandle,
+		// PacketFunc:     packetHandle,
 		StatusProvider: p,
 	}.Listen("raknet", c.Connection.LocalAddress)
 	if err != nil {
@@ -57,12 +58,27 @@ func handleConn(conn *minecraft.Conn, listener *minecraft.Listener, c config, sr
 	serverConn, err := minecraft.Dialer{
 		TokenSource:       src,
 		ClientData:        conn.ClientData(),
-		EnableClientCache: true,
-		// Protocol:    draco.Protocol{},
+		// EnableClientCache: true,
 	}.Dial("raknet", c.Connection.RemoteAddress)
 	if err != nil {
 		panic(err)
 	}
+
+	var g sync.WaitGroup
+	g.Add(2)
+	go func() {
+		if err := conn.StartGame(serverConn.GameData()); err != nil {
+			panic(err)
+		}
+		g.Done()
+	}()
+	go func() {
+		if err := serverConn.DoSpawn(); err != nil {
+			panic(err)
+		}
+		g.Done()
+	}()
+	g.Wait()
 
 	go func() {
 		defer listener.Disconnect(conn, "connection lost")
@@ -139,5 +155,8 @@ func readConfig() config {
 }
 
 func packetHandle(header packet.Header, payload []byte, src net.Addr, dst net.Addr) {
-	fmt.Printf("%v -> %v (0x%X)\n", src, dst, header.PacketID)
+	log := fmt.Sprintf("%v -> %v (0x%X)\n", src, dst, header.PacketID)
+	f, _ := os.OpenFile("log.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	f.WriteString(log)
+	f.Close()
 }
