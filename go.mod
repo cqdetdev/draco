@@ -3,27 +3,16 @@ module github.com/cqdetdev/draco
 go 1.18
 
 require (
+	github.com/df-mc/dragonfly v0.6.2
 	github.com/sandertv/gophertunnel v1.19.9
 	golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5
 )
 
 require (
-	github.com/brentp/intintmap v0.0.0-20190211203843-30dc0ade9af9 // indirect
-	github.com/cespare/xxhash v1.1.0 // indirect
-	github.com/df-mc/dragonfly v0.6.2 // indirect
-	github.com/df-mc/goleveldb v1.1.9 // indirect
-	github.com/golang/snappy v0.0.4 // indirect
-	github.com/rogpeppe/go-internal v1.3.0 // indirect
-	github.com/sirupsen/logrus v1.8.1 // indirect
-	golang.org/x/exp v0.0.0-20220328175248-053ad81199eb // indirect
-	golang.org/x/sys v0.0.0-20220330033206-e17cdc41300f // indirect
-)
-
-require (
 	github.com/df-mc/atomic v1.10.0 // indirect
-	github.com/go-gl/mathgl v1.0.0 // indirect
+	github.com/go-gl/mathgl v1.0.0
 	github.com/golang/protobuf v1.5.2 // indirect
-	github.com/google/uuid v1.3.0 // indirect
+	github.com/google/uuid v1.3.0
 	github.com/klauspost/compress v1.15.1 // indirect
 	github.com/muhammadmuzzammil1998/jsonc v1.0.0 // indirect
 	github.com/pelletier/go-toml v1.9.5

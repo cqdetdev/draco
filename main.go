@@ -35,7 +35,6 @@ func main() {
 		AcceptedProtocols: []minecraft.Protocol{
 			draco.Protocol{},
 		},
-		// PacketFunc:     packetHandle,
 		StatusProvider: p,
 	}.Listen("raknet", c.Connection.LocalAddress)
 	if err != nil {
@@ -56,9 +55,9 @@ func main() {
 
 func handleConn(conn *minecraft.Conn, listener *minecraft.Listener, c config, src oauth2.TokenSource) {
 	serverConn, err := minecraft.Dialer{
-		TokenSource:       src,
-		ClientData:        conn.ClientData(),
-		// EnableClientCache: true,
+		TokenSource: src,
+		ClientData:  conn.ClientData(),
+		// TODO: Properly support the client cache.
 	}.Dial("raknet", c.Connection.RemoteAddress)
 	if err != nil {
 		panic(err)

@@ -3,218 +3,371 @@ package draco
 import (
 	"bytes"
 	"fmt"
-
+	"github.com/cqdetdev/draco/draco/chunk"
+	"github.com/cqdetdev/draco/draco/latestmappings"
 	"github.com/cqdetdev/draco/draco/legacy"
-	"github.com/cqdetdev/draco/draco/state"
-	"github.com/df-mc/dragonfly/server/block"
-	"github.com/df-mc/dragonfly/server/world"
-	"github.com/df-mc/dragonfly/server/world/chunk"
+	"github.com/cqdetdev/draco/draco/legacymappings"
+	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/sandertv/gophertunnel/minecraft"
+	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 )
 
-// protcool representst he
+// Protocol is the protocol used to support the Minecraft 1.18.10 protocol (486).
 type Protocol struct {
 	minecraft.Protocol
 }
 
+// ID ...
 func (Protocol) ID() int32 {
 	return 486
 }
 
+// Ver ...
 func (Protocol) Ver() string {
 	return "1.18.10"
 }
 
-func (p Protocol) Packets() packet.Pool { return packet.NewPool() }
-func (p Protocol) ConvertToLatest(pk packet.Packet) packet.Packet {
-	switch pk.ID() {
-	default:
-		return pk
-	}
+// Packets ...
+func (p Protocol) Packets() packet.Pool {
+	return packet.NewPool()
 }
+
+var (
+	// air is the runtime ID of an air block.
+	air, _ = latestmappings.StateToRuntimeID("minecraft:air", nil)
+	// worldRange is hardcoded to the overworld world range.
+	// TODO: Dimensions support.
+	worldRange = cube.Range{-64, 319}
+)
+
+// ConvertToLatest ...
+func (p Protocol) ConvertToLatest(pk packet.Packet) packet.Packet {
+	switch latest := pk.(type) {
+	case *packet.MobEquipment:
+		latest.NewItem.Stack = upgradeItemStack(latest.NewItem.Stack)
+	case *packet.PlayerAuthInput:
+		latest.ItemInteractionData.HeldItem.Stack = upgradeItemStack(latest.ItemInteractionData.HeldItem.Stack)
+	case *packet.InventoryTransaction:
+		actions := make([]protocol.InventoryAction, 0, len(latest.Actions))
+		for _, action := range latest.Actions {
+			action.OldItem.Stack = upgradeItemStack(action.OldItem.Stack)
+			action.NewItem.Stack = upgradeItemStack(action.NewItem.Stack)
+			actions = append(actions, action)
+		}
+		latest.Actions = actions
+		switch data := latest.TransactionData.(type) {
+		case *protocol.UseItemTransactionData:
+			data.HeldItem.Stack = upgradeItemStack(data.HeldItem.Stack)
+			data.BlockRuntimeID = upgradeBlockRuntimeID(data.BlockRuntimeID)
+		case *protocol.UseItemOnEntityTransactionData:
+			data.HeldItem.Stack = upgradeItemStack(data.HeldItem.Stack)
+		}
+	}
+	// TODO: more translators?
+	return pk
+}
+
+// ConvertFromLatest ...
 func (p Protocol) ConvertFromLatest(pk packet.Packet) packet.Packet {
-	switch pk.ID() {
-	case packet.IDCreativeContent:
-		c := pk.(*packet.CreativeContent)
-		// iterate over items
-		for i := 0; i < len(c.Items); i++ {
+	switch latest := pk.(type) {
+	case *packet.PacketViolationWarning:
+		fmt.Printf("Violation %d (%d): %v\n", latest.PacketID, latest.Severity, latest.ViolationContext)
+	case *packet.UpdateBlock:
+		latest.NewBlockRuntimeID = downgradeBlockRuntimeID(latest.NewBlockRuntimeID)
+	case *packet.SetActorData:
+		downgradeEntityMetadata(latest.EntityMetadata)
+	case *packet.AddActor:
+		downgradeEntityMetadata(latest.EntityMetadata)
+	case *packet.CraftingData:
+		recipes := make([]protocol.Recipe, 0, len(latest.Recipes))
+		for _, r := range latest.Recipes {
+			switch r := r.(type) {
+			case *protocol.ShapedRecipe:
+				r.Input, r.Output = downgradeRecipe(r.Input, r.Output)
+			case *protocol.ShapelessRecipe:
+				r.Input, r.Output = downgradeRecipe(r.Input, r.Output)
+			}
+			recipes = append(recipes, r)
 		}
-	case packet.IDPacketViolationWarning:
-		v := pk.(*packet.PacketViolationWarning)
-		fmt.Printf("Violation %d\n", v.PacketID)
-		return v
-	case packet.IDAddPlayer:
-		old := pk.(*packet.AddPlayer)
-		new := &legacy.AddPlayer{}
-		new.UUID = old.UUID
-		new.Username = old.Username
-		new.EntityUniqueID = old.EntityUniqueID
-		new.EntityRuntimeID = old.EntityRuntimeID
-		new.PlatformChatID = old.PlatformChatID
-		new.Position = old.Position
-		new.Velocity = old.Velocity
-		new.Pitch = old.Pitch
-		new.Yaw = old.Yaw
-		new.HeadYaw = old.HeadYaw
-		old.HeldItem.Stack.NetworkID = 0
-		new.HeldItem = old.HeldItem
-		old.HeldItem.StackNetworkID = 0
-		if old.HeldItem.Stack.HasNetworkID {
-			new.HeldItem.StackNetworkID = old.HeldItem.StackNetworkID
+		latest.Recipes = recipes
+	case *packet.CreativeContent:
+		items := make([]protocol.CreativeItem, 0, len(latest.Items))
+		for _, it := range latest.Items {
+			it.Item = downgradeItemStack(it.Item)
+			items = append(items, it)
 		}
-		new.EntityMetadata = old.EntityMetadata
-		new.Flags = old.Flags
-		new.CommandPermissionLevel = old.CommandPermissionLevel
-		new.ActionPermissions = old.ActionPermissions
-		new.PermissionLevel = old.PermissionLevel
-		new.CustomStoredPermissions = old.CustomStoredPermissions
-		new.PlayerUniqueID = old.PlayerUniqueID
-		new.EntityLinks = old.EntityLinks
-		new.DeviceID = old.DeviceID
-		new.BuildPlatform = old.BuildPlatform
-		return new
-	case packet.IDStartGame:
-		old := pk.(*packet.StartGame)
-		new := &legacy.StartGame{}
-		new.EntityUniqueID = old.EntityUniqueID
-		new.EntityRuntimeID = old.EntityRuntimeID
-		new.PlayerGameMode = old.PlayerGameMode
-		new.PlayerPosition = old.PlayerPosition
-		new.Pitch = old.Pitch
-		new.Yaw = old.Yaw
-		new.WorldSeed = int32(old.WorldSeed)
-		new.SpawnBiomeType = old.SpawnBiomeType
-		new.UserDefinedBiomeName = old.UserDefinedBiomeName
-		new.Dimension = old.Dimension
-		new.Generator = old.Generator
-		new.WorldGameMode = old.WorldGameMode
-		new.Difficulty = old.Difficulty
-		new.WorldSpawn = old.WorldSpawn
-		new.AchievementsDisabled = old.AchievementsDisabled
-		new.DayCycleLockTime = old.DayCycleLockTime
-		new.EducationEditionOffer = old.EducationEditionOffer
-		new.EducationFeaturesEnabled = old.EducationFeaturesEnabled
-		new.EducationProductID = old.EducationProductID
-		new.RainLevel = old.RainLevel
-		new.LightningLevel = old.LightningLevel
-		new.ConfirmedPlatformLockedContent = old.ConfirmedPlatformLockedContent
-		new.MultiPlayerGame = old.MultiPlayerGame
-		new.MultiPlayerCorrelationID = old.MultiPlayerCorrelationID
-		new.LANBroadcastEnabled = old.LANBroadcastEnabled
-		new.XBLBroadcastMode = old.XBLBroadcastMode
-		new.CommandsEnabled = old.CommandsEnabled
-		new.TexturePackRequired = old.TexturePackRequired
-		new.GameRules = old.GameRules
-		new.Experiments = old.Experiments
-		new.ExperimentsPreviouslyToggled = old.ExperimentsPreviouslyToggled
-		new.BonusChestEnabled = old.BonusChestEnabled
-		new.StartWithMapEnabled = old.StartWithMapEnabled
-		new.PlayerPermissions = old.PlayerPermissions
-		new.ServerChunkTickRadius = old.ServerChunkTickRadius
-		new.HasLockedBehaviourPack = old.HasLockedBehaviourPack
-		new.HasLockedTexturePack = old.HasLockedTexturePack
-		new.FromLockedWorldTemplate = old.FromLockedWorldTemplate
-		new.MSAGamerTagsOnly = old.MSAGamerTagsOnly
-		new.FromWorldTemplate = old.FromWorldTemplate
-		new.WorldTemplateSettingsLocked = old.WorldTemplateSettingsLocked
-		new.OnlySpawnV1Villagers = old.OnlySpawnV1Villagers
-		new.BaseGameVersion = old.BaseGameVersion
-		new.LimitedWorldWidth = old.LimitedWorldWidth
-		new.LimitedWorldDepth = old.LimitedWorldDepth
-		new.NewNether = old.NewNether
-		new.EducationSharedResourceURI = old.EducationSharedResourceURI
-		new.ForceExperimentalGameplay = old.ForceExperimentalGameplay
-		new.LevelID = old.LevelID
-		new.WorldName = old.WorldName
-		new.TemplateContentIdentity = old.TemplateContentIdentity
-		new.Trial = old.Trial
-		new.PlayerMovementSettings = old.PlayerMovementSettings
-		new.Time = old.Time
-		new.EnchantmentSeed = old.EnchantmentSeed
-		new.Blocks = old.Blocks
-		// for _, i := range old.Items {
-		// 	it, ok := world.ItemByRuntimeID(int32(i.RuntimeID), 0)
-		// 	name, _ := it.EncodeItem()
-		// 	if !ok {
-		// 		panic("could not convert it idk (to new)")
-		// 	}
-
-		// 	oldRuntimeID, meta, ok := state.ItemRuntimeID(it)
-		// 	if !ok {
-		// 		fmt.Printf("%s %v\n", name, meta)
-		// 		panic("could not convert it idk (to old)")
-		// 	}
-		// 	fmt.Printf("(%s) New: %d | Old: %d\n", name, i.RuntimeID, oldRuntimeID)
-		// 	new.Items = append(new.Items, protocol.ItemEntry{
-		// 		Name:           name,
-		// 		RuntimeID:      int16(oldRuntimeID),
-		// 		ComponentBased: i.ComponentBased,
-		// 	})
-		// }
-		new.Items = old.Items
-		new.MultiPlayerCorrelationID = old.MultiPlayerCorrelationID
-		new.ServerAuthoritativeInventory = old.ServerAuthoritativeInventory
-		new.GameVersion = old.GameVersion
-		new.ServerBlockStateChecksum = old.ServerBlockStateChecksum
-		return new
-	case packet.IDLevelChunk:
-		lc := pk.(*packet.LevelChunk)
-		air := world.BlockRuntimeID(block.Air{})
-		c, err := chunk.NetworkDecode(air, lc.RawPayload, int(lc.SubChunkCount), world.Overworld.Range())
-		if err != nil {
-			panic(err)
+		latest.Items = items
+	case *packet.InventoryContent:
+		items := make([]protocol.ItemInstance, 0, len(latest.Content))
+		for _, it := range latest.Content {
+			it.Stack = downgradeItemStack(it.Stack)
+			items = append(items, it)
 		}
-		for _, s := range c.Sub() {
-			for _, l := range s.Layers() {
-				l.Palette().Replace(func(newRuntimeID uint32) uint32 {
-					name, props, ok := chunk.RuntimeIDToState(newRuntimeID)
-					if !ok {
-						panic("could not convert it idk (to new)")
-					}
-
-					oldRuntimeID, ok := state.StateToRuntimeID(name, props)
-					if !ok {
-						fmt.Printf("%s %v\n", name, props)
-						panic("could not convert it idk (to old)")
-					}
-					// fmt.Printf("(%s) New: %d | Old: %d\n", name, newRuntimeID, oldRuntimeID)
-					return oldRuntimeID
+		latest.Content = items
+	case *packet.InventorySlot:
+		latest.NewItem.Stack = downgradeItemStack(latest.NewItem.Stack)
+	case *packet.AddPlayer:
+		earlier := &legacy.AddPlayer{
+			UUID:                    latest.UUID,
+			Username:                latest.Username,
+			EntityUniqueID:          latest.EntityUniqueID,
+			EntityRuntimeID:         latest.EntityRuntimeID,
+			PlatformChatID:          latest.PlatformChatID,
+			Position:                latest.Position,
+			Velocity:                latest.Velocity,
+			Pitch:                   latest.Pitch,
+			Yaw:                     latest.Yaw,
+			HeadYaw:                 latest.HeadYaw,
+			HeldItem:                latest.HeldItem,
+			EntityMetadata:          latest.EntityMetadata,
+			Flags:                   latest.Flags,
+			CommandPermissionLevel:  latest.CommandPermissionLevel,
+			ActionPermissions:       latest.ActionPermissions,
+			PermissionLevel:         latest.PermissionLevel,
+			CustomStoredPermissions: latest.CustomStoredPermissions,
+			PlayerUniqueID:          latest.PlayerUniqueID,
+			EntityLinks:             latest.EntityLinks,
+			DeviceID:                latest.DeviceID,
+			BuildPlatform:           latest.BuildPlatform,
+		}
+		earlier.HeldItem.Stack = downgradeItemStack(latest.HeldItem.Stack)
+		return earlier
+	case *packet.StartGame:
+		earlier := &legacy.StartGame{
+			EntityUniqueID:                 latest.EntityUniqueID,
+			EntityRuntimeID:                latest.EntityRuntimeID,
+			PlayerGameMode:                 latest.PlayerGameMode,
+			PlayerPosition:                 latest.PlayerPosition,
+			Pitch:                          latest.Pitch,
+			Yaw:                            latest.Yaw,
+			WorldSeed:                      int32(latest.WorldSeed),
+			SpawnBiomeType:                 latest.SpawnBiomeType,
+			UserDefinedBiomeName:           latest.UserDefinedBiomeName,
+			Dimension:                      latest.Dimension,
+			Generator:                      latest.Generator,
+			WorldGameMode:                  latest.WorldGameMode,
+			Difficulty:                     latest.Difficulty,
+			WorldSpawn:                     latest.WorldSpawn,
+			AchievementsDisabled:           latest.AchievementsDisabled,
+			DayCycleLockTime:               latest.DayCycleLockTime,
+			EducationEditionOffer:          latest.EducationEditionOffer,
+			EducationFeaturesEnabled:       latest.EducationFeaturesEnabled,
+			EducationProductID:             latest.EducationProductID,
+			RainLevel:                      latest.RainLevel,
+			LightningLevel:                 latest.LightningLevel,
+			ConfirmedPlatformLockedContent: latest.ConfirmedPlatformLockedContent,
+			MultiPlayerGame:                latest.MultiPlayerGame,
+			MultiPlayerCorrelationID:       latest.MultiPlayerCorrelationID,
+			LANBroadcastEnabled:            latest.LANBroadcastEnabled,
+			XBLBroadcastMode:               latest.XBLBroadcastMode,
+			CommandsEnabled:                latest.CommandsEnabled,
+			TexturePackRequired:            latest.TexturePackRequired,
+			GameRules:                      latest.GameRules,
+			Experiments:                    latest.Experiments,
+			ExperimentsPreviouslyToggled:   latest.ExperimentsPreviouslyToggled,
+			BonusChestEnabled:              latest.BonusChestEnabled,
+			StartWithMapEnabled:            latest.StartWithMapEnabled,
+			PlayerPermissions:              latest.PlayerPermissions,
+			ServerChunkTickRadius:          latest.ServerChunkTickRadius,
+			HasLockedBehaviourPack:         latest.HasLockedBehaviourPack,
+			HasLockedTexturePack:           latest.HasLockedTexturePack,
+			FromLockedWorldTemplate:        latest.FromLockedWorldTemplate,
+			MSAGamerTagsOnly:               latest.MSAGamerTagsOnly,
+			FromWorldTemplate:              latest.FromWorldTemplate,
+			WorldTemplateSettingsLocked:    latest.WorldTemplateSettingsLocked,
+			OnlySpawnV1Villagers:           latest.OnlySpawnV1Villagers,
+			BaseGameVersion:                latest.BaseGameVersion,
+			LimitedWorldWidth:              latest.LimitedWorldWidth,
+			LimitedWorldDepth:              latest.LimitedWorldDepth,
+			NewNether:                      latest.NewNether,
+			EducationSharedResourceURI:     latest.EducationSharedResourceURI,
+			ForceExperimentalGameplay:      latest.ForceExperimentalGameplay,
+			LevelID:                        latest.LevelID,
+			WorldName:                      latest.WorldName,
+			TemplateContentIdentity:        latest.TemplateContentIdentity,
+			Trial:                          latest.Trial,
+			PlayerMovementSettings:         latest.PlayerMovementSettings,
+			Time:                           latest.Time,
+			EnchantmentSeed:                latest.EnchantmentSeed,
+			Blocks:                         latest.Blocks,
+			ServerAuthoritativeInventory:   latest.ServerAuthoritativeInventory,
+			GameVersion:                    latest.GameVersion,
+			ServerBlockStateChecksum:       latest.ServerBlockStateChecksum,
+		}
+		for _, i := range latest.Items {
+			if oldRuntimeID, ok := legacymappings.ItemNameToRuntimeID(i.Name); ok {
+				earlier.Items = append(earlier.Items, protocol.ItemEntry{
+					Name:           i.Name,
+					RuntimeID:      int16(oldRuntimeID),
+					ComponentBased: i.ComponentBased,
 				})
 			}
 		}
+		return earlier
+	case *packet.LevelChunk:
+		if latest.SubChunkRequestMode == protocol.SubChunkRequestModeLegacy {
+			readBuf := bytes.NewBuffer(latest.RawPayload)
+			c, err := chunk.NetworkDecode(air, readBuf, int(latest.SubChunkCount), worldRange)
+			if err != nil {
+				panic(err)
+			}
+			for _, s := range c.Sub() {
+				downgradeSubChunk(s)
+			}
 
-		buf, data := bytes.NewBuffer(nil), chunk.Encode(c, chunk.NetworkEncoding)
-		for i := range data.SubChunks {
-			_, _ = buf.Write(data.SubChunks[i])
+			writeBuf, data := bytes.NewBuffer(nil), chunk.Encode(c, chunk.NetworkEncoding)
+			for i := range data.SubChunks {
+				_, _ = writeBuf.Write(data.SubChunks[i])
+			}
+			_, _ = writeBuf.Write(data.Biomes)
+
+			latest.RawPayload = append(writeBuf.Bytes(), readBuf.Bytes()...)
 		}
-		_, _ = buf.Write(data.Biomes)
-		buf.WriteByte(0)
-		lc.RawPayload = buf.Bytes()
-		return lc
-	case packet.IDAddVolumeEntity:
-		old := pk.(*packet.AddVolumeEntity)
-		new := &legacy.AddVolumeEntity{}
-		new.EntityRuntimeID = old.EntityRuntimeID
-		new.EntityMetadata = old.EntityMetadata
-		new.EncodingIdentifier = old.EncodingIdentifier
-		new.InstanceIdentifier = old.InstanceIdentifier
-		new.EngineVersion = old.EngineVersion
-		return new
-	case packet.IDRemoveVolumeEntity:
-		old := pk.(*packet.RemoveVolumeEntity)
-		new := &legacy.RemoveVolumeEntity{}
-		new.EntityRuntimeID = old.EntityRuntimeID
-		return new
-	case packet.IDSpawnParticleEffect:
-		old := pk.(*packet.SpawnParticleEffect)
-		new := &legacy.SpawnParticleEffect{}
-		new.Dimension = old.Dimension
-		new.EntityUniqueID = old.EntityUniqueID
-		new.Position = old.Position
-		new.ParticleName = old.ParticleName
-		return new
+	case *packet.SubChunk:
+		entries := make([]protocol.SubChunkEntry, 0, len(latest.SubChunkEntries))
+		for _, e := range latest.SubChunkEntries {
+			if e.Result == protocol.SubChunkResultSuccess {
+				var ind uint8
+				buf := bytes.NewBuffer(e.RawPayload)
+				s, err := chunk.DecodeSubChunk(air, worldRange, buf, &ind, chunk.NetworkEncoding)
+				if err != nil {
+					panic(err)
+				}
+				downgradeSubChunk(s)
+				serialisedSubChunk := chunk.EncodeSubChunk(s, chunk.NetworkEncoding, worldRange, int(ind))
+				e.RawPayload = append(serialisedSubChunk, buf.Bytes()...)
+			}
+			entries = append(entries, e)
+		}
+		latest.SubChunkEntries = entries
+	case *packet.AddVolumeEntity:
+		return &legacy.AddVolumeEntity{
+			EntityRuntimeID:    latest.EntityRuntimeID,
+			EntityMetadata:     latest.EntityMetadata,
+			EncodingIdentifier: latest.EncodingIdentifier,
+			InstanceIdentifier: latest.InstanceIdentifier,
+			EngineVersion:      latest.EngineVersion,
+		}
+	case *packet.RemoveVolumeEntity:
+		return &legacy.RemoveVolumeEntity{EntityRuntimeID: latest.EntityRuntimeID}
+	case *packet.SpawnParticleEffect:
+		return &legacy.SpawnParticleEffect{
+			Dimension:      latest.Dimension,
+			EntityUniqueID: latest.EntityUniqueID,
+			Position:       latest.Position,
+			ParticleName:   latest.ParticleName,
+		}
 	}
-
 	return pk
+}
+
+// dataKeyVariant is used for falling blocks and fake texts. This is necessary for falling block runtime ID translation.
+const dataKeyVariant = 2
+
+// downgradeSubChunk translates a 1.18.30 sub-chunk to a 1.18.12 one, updating all palette entries with the appropriate
+// runtime IDs.
+func downgradeSubChunk(s *chunk.SubChunk) {
+	for _, l := range s.Layers() {
+		l.Palette().Replace(downgradeBlockRuntimeID)
+	}
+}
+
+// downgradeBlockRuntimeID translates a 1.18.30 runtime ID to a 1.18.12 one.
+func downgradeBlockRuntimeID(latestRID uint32) uint32 {
+	name, properties, found := latestmappings.RuntimeIDToState(latestRID)
+	if !found {
+		panic(fmt.Errorf("downgrade block runtime id: could not find name for runtime id: %v", latestRID))
+	}
+	earlierRuntimeID, found := legacymappings.StateToRuntimeID(name, properties)
+	if !found {
+		panic(fmt.Errorf("downgrade block runtime id: could not find runtime id for name: %v", name))
+	}
+	return earlierRuntimeID
+}
+
+// upgradeBlockRuntimeID translates a 1.18.12 block runtime ID to a 1.18.30 one.
+func upgradeBlockRuntimeID(id uint32) uint32 {
+	name, properties, found := legacymappings.RuntimeIDToState(id)
+	if !found {
+		panic(fmt.Errorf("upgrade block runtime id: could not find name for runtime id: %v", id))
+	}
+	latestRuntimeID, found := latestmappings.StateToRuntimeID(name, properties)
+	if !found {
+		panic(fmt.Errorf("upgrade block runtime id: could not find runtime id for name: %v", name))
+	}
+	return latestRuntimeID
+}
+
+// downgradeEntityMetadata translates a 1.18.30 entity metadata to a 1.18.12 one.
+func downgradeEntityMetadata(metadata map[uint32]any) {
+	if latestRID, ok := metadata[dataKeyVariant]; ok {
+		metadata[dataKeyVariant] = int32(downgradeBlockRuntimeID(uint32(latestRID.(int32))))
+	}
+}
+
+// downgradeRecipe downgrades a 1.18.30 recipe to a 1.18.12 one.
+func downgradeRecipe(latestInput []protocol.RecipeIngredientItem, latestOutput []protocol.ItemStack) ([]protocol.RecipeIngredientItem, []protocol.ItemStack) {
+	input := make([]protocol.RecipeIngredientItem, 0, len(latestInput))
+	output := make([]protocol.ItemStack, 0, len(latestOutput))
+	for _, i := range latestInput {
+		if i.Count > 0 {
+			i.NetworkID = downgradeItemRuntimeID(i.NetworkID)
+		}
+		input = append(input, i)
+	}
+	for _, o := range latestOutput {
+		output = append(output, downgradeItemStack(o))
+	}
+	return input, output
+}
+
+// downgradeItemStack translates a 1.18.30 item stack to a 1.18.12 one, updating all palette entries with the appropriate
+// runtime IDs.
+func downgradeItemStack(st protocol.ItemStack) protocol.ItemStack {
+	if st.BlockRuntimeID > 0 {
+		st.BlockRuntimeID = int32(downgradeBlockRuntimeID(uint32(st.BlockRuntimeID)))
+	}
+	if st.HasNetworkID {
+		st.NetworkID = downgradeItemRuntimeID(st.NetworkID)
+	}
+	return st
+}
+
+// upgradeItemStack translates a 1.18.12 item stack to a 1.18.30 one, updating all palette entries with the appropriate
+// runtime IDs.
+func upgradeItemStack(st protocol.ItemStack) protocol.ItemStack {
+	if st.BlockRuntimeID > 0 {
+		st.BlockRuntimeID = int32(upgradeBlockRuntimeID(uint32(st.BlockRuntimeID)))
+	}
+	if st.HasNetworkID {
+		st.NetworkID = upgradeItemRuntimeID(st.NetworkID)
+	}
+	return st
+}
+
+// upgradeItemRuntimeID translates a 1.18.12 item runtime ID to a 1.18.30 one.
+func upgradeItemRuntimeID(latestRID int32) int32 {
+	name, found := legacymappings.ItemRuntimeIDToName(latestRID)
+	if !found {
+		panic(fmt.Errorf("upgrade item runtime id: could not find name for runtime id: %v", latestRID))
+	}
+	earlierRuntimeID, found := latestmappings.ItemNameToRuntimeID(name)
+	if !found {
+		panic(fmt.Errorf("upgrade item runtime id: could not find runtime id for name: %v", name))
+	}
+	return earlierRuntimeID
+}
+
+// downgradeItemRuntimeID translates a 1.18.30 item runtime ID to a 1.18.12 one.
+func downgradeItemRuntimeID(latestRID int32) int32 {
+	name, found := latestmappings.ItemRuntimeIDToName(latestRID)
+	if !found {
+		panic(fmt.Errorf("downgrade item runtime id: could not find name for runtime id: %v", latestRID))
+	}
+	earlierRuntimeID, found := legacymappings.ItemNameToRuntimeID(name)
+	if !found {
+		panic(fmt.Errorf("downgrade item runtime id: could not find runtime id for name: %v", name))
+	}
+	return earlierRuntimeID
 }

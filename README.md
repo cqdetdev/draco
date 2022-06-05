@@ -12,11 +12,12 @@ this proxy basically allows the client to join on a proxy that can translate the
 
 this allows players to then be able to use the 1.18.10 x86 build (which does NOT have renderdragon) and play on MC without any stutters or input lag
 
+also uses dragonfly chunk code for chunk translation
+
 # Notes
 
-this project is still in development but does NOW SUPPORT a successful login into a server from 1.18.12 (as of 5/28/2022). However, note that it is still not practical to use this proxy since a) there are alot of unhandled packets that still need to be worked on and b) chunks are not handled properly meaning you will spawn into an empty void.
-
-*Could this be used for client-side multiversion on other versions like 1.16.100 or 1.12.0?* 
+this should work fairly flawlessly but the code is absolutely dogshit as of now and can be significantly improved, with
+potential for versions alongside 1.18.30 too. this also doesn't forward packs automatically, at least for now.
 
 # Further Notes
 
