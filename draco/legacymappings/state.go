@@ -10,10 +10,14 @@ import (
 var (
 	//go:embed block_states.nbt
 	blockStateData []byte
+	//go:embed block_aliases.nbt
+	blockAliasesData []byte
 	// stateRuntimeIDs holds a map for looking up the runtime ID of a block by the stateHash it produces.
 	stateRuntimeIDs = map[state.Hash]uint32{}
 	// runtimeIDToState holds a map for looking up the blockState of a block by its runtime ID.
 	runtimeIDToState = map[uint32]state.Block{}
+	// aliasMappings maps from a legacy block name alias to an updated name.
+	aliasMappings = map[string]string{}
 )
 
 var (
@@ -36,6 +40,14 @@ func init() {
 		itemRuntimeIDsToNames[rid] = name
 	}
 
+	var aliases map[string]string
+	if err := nbt.Unmarshal(blockAliasesData, &aliases); err != nil {
+		panic(err)
+	}
+	for alias, name := range aliases {
+		aliasMappings[name] = alias
+	}
+
 	dec := nbt.NewDecoder(bytes.NewBuffer(blockStateData))
 
 	// Register all block states present in the block_states.nbt file. These are all possible options registered
@@ -53,15 +65,8 @@ func init() {
 
 // StateToRuntimeID converts a name and its state properties to a runtime ID.
 func StateToRuntimeID(name string, properties map[string]any) (runtimeID uint32, found bool) {
-	switch name {
-	case "minecraft:invisible_bedrock":
-		name = "minecraft:invisibleBedrock"
-	case "minecraft:sea_lantern":
-		name = "minecraft:seaLantern"
-	case "minecraft:concrete_powder":
-		name = "minecraft:concretePowder"
-	case "minecraft:piston_arm_collision":
-		name = "minecraft:pistonArmCollision"
+	if updatedName, ok := aliasMappings[name]; ok {
+		name = updatedName
 	}
 	rid, ok := stateRuntimeIDs[state.HashBlock(state.Block{Name: name, Properties: properties})]
 	return rid, ok
@@ -81,13 +86,8 @@ func ItemRuntimeIDToName(runtimeID int32) (name string, found bool) {
 
 // ItemNameToRuntimeID converts a string ID to an item runtime ID.
 func ItemNameToRuntimeID(name string) (runtimeID int32, found bool) {
-	switch name {
-	case "minecraft:invisible_bedrock":
-		name = "minecraft:invisibleBedrock"
-	case "minecraft:sea_lantern":
-		name = "minecraft:seaLantern"
-	case "minecraft:concrete_powder":
-		name = "minecraft:concretePowder"
+	if updatedName, ok := aliasMappings[name]; ok {
+		name = updatedName
 	}
 	rid, ok := itemNamesToRuntimeIDs[name]
 	return rid, ok
