@@ -3,10 +3,11 @@ package draco
 import (
 	"bytes"
 	"fmt"
+
 	"github.com/cqdetdev/draco/draco/chunk"
 	"github.com/cqdetdev/draco/draco/latestmappings"
-	"github.com/cqdetdev/draco/draco/legacy"
 	"github.com/cqdetdev/draco/draco/legacymappings"
+	"github.com/cqdetdev/draco/draco/legacypackets"
 	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
@@ -108,7 +109,7 @@ func (p Protocol) ConvertFromLatest(pk packet.Packet) packet.Packet {
 	case *packet.InventorySlot:
 		latest.NewItem.Stack = downgradeItemStack(latest.NewItem.Stack)
 	case *packet.AddPlayer:
-		earlier := &legacy.AddPlayer{
+		earlier := &legacypackets.AddPlayer{
 			UUID:                    latest.UUID,
 			Username:                latest.Username,
 			EntityUniqueID:          latest.EntityUniqueID,
@@ -134,7 +135,7 @@ func (p Protocol) ConvertFromLatest(pk packet.Packet) packet.Packet {
 		earlier.HeldItem.Stack = downgradeItemStack(latest.HeldItem.Stack)
 		return earlier
 	case *packet.StartGame:
-		earlier := &legacy.StartGame{
+		earlier := &legacypackets.StartGame{
 			EntityUniqueID:                 latest.EntityUniqueID,
 			EntityRuntimeID:                latest.EntityRuntimeID,
 			PlayerGameMode:                 latest.PlayerGameMode,
@@ -242,7 +243,7 @@ func (p Protocol) ConvertFromLatest(pk packet.Packet) packet.Packet {
 		}
 		latest.SubChunkEntries = entries
 	case *packet.AddVolumeEntity:
-		return &legacy.AddVolumeEntity{
+		return &legacypackets.AddVolumeEntity{
 			EntityRuntimeID:    latest.EntityRuntimeID,
 			EntityMetadata:     latest.EntityMetadata,
 			EncodingIdentifier: latest.EncodingIdentifier,
@@ -250,9 +251,9 @@ func (p Protocol) ConvertFromLatest(pk packet.Packet) packet.Packet {
 			EngineVersion:      latest.EngineVersion,
 		}
 	case *packet.RemoveVolumeEntity:
-		return &legacy.RemoveVolumeEntity{EntityRuntimeID: latest.EntityRuntimeID}
+		return &legacypackets.RemoveVolumeEntity{EntityRuntimeID: latest.EntityRuntimeID}
 	case *packet.SpawnParticleEffect:
-		return &legacy.SpawnParticleEffect{
+		return &legacypackets.SpawnParticleEffect{
 			Dimension:      latest.Dimension,
 			EntityUniqueID: latest.EntityUniqueID,
 			Position:       latest.Position,

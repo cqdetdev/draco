@@ -1,4 +1,4 @@
-package legacy
+package legacypackets
 
 import (
 	"github.com/go-gl/mathgl/mgl32"
