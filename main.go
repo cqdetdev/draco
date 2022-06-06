@@ -12,6 +12,7 @@ import (
 	// "sync"
 
 	"github.com/cqdetdev/draco/draco"
+	v486 "github.com/cqdetdev/draco/draco/protocol/v486"
 	"github.com/pelletier/go-toml"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
@@ -41,7 +42,7 @@ func main() {
 
 	li, err := minecraft.ListenConfig{
 		AcceptedProtocols: []minecraft.Protocol{
-			draco.Protocol{},
+			v486.Protocol{},
 		},
 		StatusProvider: p,
 		ResourcePacks:  tempConn.ResourcePacks(),
