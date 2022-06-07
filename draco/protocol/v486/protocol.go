@@ -7,9 +7,7 @@ import (
 )
 
 // Protocol is the protocol used to support the Minecraft 1.18.10 protocol (486).
-type Protocol struct {
-	minecraft.Protocol
-}
+type Protocol struct {}
 
 // ID ...
 func (Protocol) ID() int32 {
@@ -27,17 +25,17 @@ func (p Protocol) Packets() packet.Pool {
 }
 
 // ConvertToLatest ...
-func (p Protocol) ConvertToLatest(pk packet.Packet) packet.Packet {
+func (p Protocol) ConvertToLatest(pk packet.Packet, _ *minecraft.Conn) []packet.Packet {
 	if t, ok := v486.Translator.Outbound[pk.ID()]; ok {
-		return t.Translate(pk)
+		return []packet.Packet{t.Translate(pk)}
 	}
-	return pk
+	return []packet.Packet{pk}
 }
 
 // ConvertFromLatest ...
-func (p Protocol) ConvertFromLatest(pk packet.Packet) packet.Packet {
+func (p Protocol) ConvertFromLatest(pk packet.Packet, _ *minecraft.Conn) []packet.Packet {
 	if t, ok := v486.Translator.Inbound[pk.ID()]; ok {
-		return t.Translate(pk)
+		return []packet.Packet{t.Translate(pk)}
 	}
-	return pk
+	return []packet.Packet{pk}
 }

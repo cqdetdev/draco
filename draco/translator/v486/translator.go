@@ -7,9 +7,26 @@ import (
 
 var Translator translator.Translator = translator.Translator{
 	Inbound: map[uint32]translator.TranslationHandler{
+		packet.IDUpdateBlock: UpdateBlockTranslator{},
+		packet.IDSetActorData: SetActorDataTranslator{},
+		packet.IDAddActor: AddActorTranslator{},
+		packet.IDCraftingData: CraftingDataTranslator{},
+		packet.IDCreativeContent: CreativeContentTranslator{},
+		packet.IDInventoryContent: InventoryContentTranslator{},
+		packet.IDInventorySlot: InventorySlotTranslator{},
+		packet.IDAddPlayer: AddPlayerTranslator{},
+		packet.IDStartGame: StartGameTranslator{},
+		packet.IDLevelChunk: LevelChunkTranslator{},
+		packet.IDSubChunk: SubChunkTranslator{},
+		packet.IDAddVolumeEntity: AddVolumeEntityTranslator{},
+		packet.IDRemoveVolumeEntity: RemoveVolumeEntityTranslator{},
+		packet.IDSpawnParticleEffect: SpawnParticleEffectTranslator{},
 	},
 	Outbound: map[uint32]translator.TranslationHandler{
 		packet.IDMobEquipment: MobEquipmentTranslator{},
+		packet.IDPlayerAuthInput: PlayerAuthInputTranslator{},
+		packet.IDInventoryTransaction: InventoryTransactionTranslator{},
+
 	},
 	Protocol: 486,
 }
