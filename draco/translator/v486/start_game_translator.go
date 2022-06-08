@@ -1,8 +1,8 @@
 package v486
 
 import (
-	"github.com/cqdetdev/draco/draco/legacy"
 	"github.com/cqdetdev/draco/draco/legacymappings"
+	v486 "github.com/cqdetdev/draco/draco/packet/v486"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 )
@@ -11,7 +11,7 @@ type StartGameTranslator struct{}
 
 func (StartGameTranslator) Translate(pk packet.Packet) packet.Packet {
 	latest := pk.(*packet.StartGame)
-	earlier := &legacy.StartGame{
+	earlier := &v486.StartGame{
 		EntityUniqueID:                 latest.EntityUniqueID,
 		EntityRuntimeID:                latest.EntityRuntimeID,
 		PlayerGameMode:                 latest.PlayerGameMode,

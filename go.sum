@@ -44,8 +44,8 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/df-mc/atomic v1.10.0 h1:0ZuxBKwR/hxcFGorKiHIp+hY7hgY+XBTzhCYD2NqSEg=
 github.com/df-mc/atomic v1.10.0/go.mod h1:Gw9rf+rPIbydMjA329Jn4yjd/O2c/qusw3iNp4tFGSc=
-github.com/df-mc/dragonfly v0.7.1 h1:kNKh6yFIoLcMSbeV9ddRJ20JGBH7Ii1SyeQn1GyloOs=
-github.com/df-mc/dragonfly v0.7.1/go.mod h1:U6wnq3QSebbGQNfqyvtl3Z8purjmjPLQhD6ESJIZ8lg=
+github.com/df-mc/dragonfly v0.7.2 h1:hgMmeE7nEXHp804RE8m9t/wUxUKXwLh0WabOvckePp0=
+github.com/df-mc/dragonfly v0.7.2/go.mod h1:U6wnq3QSebbGQNfqyvtl3Z8purjmjPLQhD6ESJIZ8lg=
 github.com/envoyproxy/go-control-plane v0.9.0/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/go-control-plane v0.9.4/go.mod h1:6rpuAdCZL397s3pYoYcLgu1mIlRU8Am5FuJP05cCM98=
@@ -128,10 +128,8 @@ github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4/go.mod h1:
 github.com/rogpeppe/go-internal v1.3.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
 github.com/sandertv/go-raknet v1.10.9 h1:1a8ntIenpDBue3IsUdhJhxTznGt8Qeaan7HtQKi0hBs=
 github.com/sandertv/go-raknet v1.10.9/go.mod h1:Gx+WgZBMQ0V2UoouGoJ8Wj6CDrMBQ4SB2F/ggpl5/+Y=
-github.com/sandertv/gophertunnel v1.20.0 h1:DZHlUZvQvENyddgDrrtQ6oEt5J3B3sjR7l/4yHnHYww=
-github.com/sandertv/gophertunnel v1.20.0/go.mod h1:MM2eeBapijrPCK45QL0EaTEheEBHWJshdZpr6ZBsaXc=
-github.com/sandertv/gophertunnel v1.20.1-0.20220607194037-cf29758b47e6 h1:uG1OdYrjIvoMdM1fBJhTe4t7lwSnPi8EjuCj1DcEa/U=
-github.com/sandertv/gophertunnel v1.20.1-0.20220607194037-cf29758b47e6/go.mod h1:MM2eeBapijrPCK45QL0EaTEheEBHWJshdZpr6ZBsaXc=
+github.com/sandertv/gophertunnel v1.21.0 h1:qKWWhm/arv4W36rooAfETqY9WyTmrKJKqUrfetg7bIs=
+github.com/sandertv/gophertunnel v1.21.0/go.mod h1:MM2eeBapijrPCK45QL0EaTEheEBHWJshdZpr6ZBsaXc=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
 github.com/stretchr/testify v1.4.0 h1:2E4SXV/wtOkTonXsotYi4li6zVWxYlZuYNCXe9XRJyk=

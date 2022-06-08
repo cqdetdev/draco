@@ -1,7 +1,7 @@
 package v486
 
 import (
-	"github.com/cqdetdev/draco/draco/legacy"
+	v486 "github.com/cqdetdev/draco/draco/packet/v486"
 	"github.com/cqdetdev/draco/draco/translator"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 )
@@ -10,7 +10,7 @@ type AddPlayerTranslator struct{}
 
 func (AddPlayerTranslator) Translate(pk packet.Packet) packet.Packet {
 	latest := pk.(*packet.AddPlayer)
-	earlier := &legacy.AddPlayer{
+	earlier := &v486.AddPlayer{
 		UUID:                    latest.UUID,
 		Username:                latest.Username,
 		EntityUniqueID:          latest.EntityUniqueID,

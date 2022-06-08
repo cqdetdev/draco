@@ -1,4 +1,4 @@
-package legacy
+package v486
 
 import (
 	"github.com/sandertv/gophertunnel/minecraft/nbt"

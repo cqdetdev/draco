@@ -3,8 +3,8 @@ module github.com/cqdetdev/draco
 go 1.18
 
 require (
-	github.com/df-mc/dragonfly v0.7.1
-	github.com/sandertv/gophertunnel v1.20.1-0.20220607194037-cf29758b47e6
+	github.com/df-mc/dragonfly v0.7.2
+	github.com/sandertv/gophertunnel v1.21.0
 	golang.org/x/oauth2 v0.0.0-20220524215830-622c5d57e401
 )
 

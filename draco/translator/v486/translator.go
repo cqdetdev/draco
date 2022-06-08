@@ -21,12 +21,13 @@ var Translator translator.Translator = translator.Translator{
 		packet.IDAddVolumeEntity: AddVolumeEntityTranslator{},
 		packet.IDRemoveVolumeEntity: RemoveVolumeEntityTranslator{},
 		packet.IDSpawnParticleEffect: SpawnParticleEffectTranslator{},
+		packet.IDSetTitle: SetTitleTranslator{},
 	},
 	Outbound: map[uint32]translator.TranslationHandler{
 		packet.IDMobEquipment: MobEquipmentTranslator{},
 		packet.IDPlayerAuthInput: PlayerAuthInputTranslator{},
 		packet.IDInventoryTransaction: InventoryTransactionTranslator{},
-
+		packet.IDResourcePacksInfo: ResourcePacksInfoTranslator{},
 	},
 	Protocol: 486,
 }

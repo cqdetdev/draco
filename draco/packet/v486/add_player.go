@@ -1,4 +1,4 @@
-package legacy
+package v486
 
 import (
 	"github.com/go-gl/mathgl/mgl32"
