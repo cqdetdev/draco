@@ -23,11 +23,20 @@ func main() {
 		panic(err)
 	}
 
+	tempConn, err := minecraft.Dialer{
+		TokenSource: source,
+	}.Dial("raknet", conf.Connection.RemoteAddress)
+	if err != nil {
+		panic(err)
+	}
+	_ = tempConn.Close()
+
 	listener, err := minecraft.ListenConfig{
 		AcceptedProtocols: []minecraft.Protocol{
 			draco.Protocol{},
 		},
 		StatusProvider: p,
+		ResourcePacks:  tempConn.ResourcePacks(),
 	}.Listen("raknet", conf.Connection.LocalAddress)
 	if err != nil {
 		panic(err)
