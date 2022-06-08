@@ -68,6 +68,31 @@ func StateToRuntimeID(name string, properties map[string]any) (runtimeID uint32,
 	if updatedName, ok := aliasMappings[name]; ok {
 		name = updatedName
 	}
+	if name == "minecraft:double_stone_block_slab" {
+		name = "minecraft:real_double_stone_slab"
+	}
+	if name == "minecraft:double_stone_block_slab2" {
+		name = "minecraft:real_double_stone_slab2"
+	}
+	if name == "minecraft:double_stone_block_slab3" {
+		name = "minecraft:real_double_stone_slab3"
+	}
+	if name == "minecraft:double_stone_block_slab4" {
+		name = "minecraft:real_double_stone_slab4"
+	}
+
+	if name == "minecraft:stone_block_slab" {
+		name = "minecraft:double_stone_slab"
+	}
+	if name == "minecraft:stone_block_slab2" {
+		name = "minecraft:double_stone_slab2"
+	}
+	if name == "minecraft:stone_block_slab3" {
+		name = "minecraft:double_stone_slab3"
+	}
+	if name == "minecraft:stone_block_slab4" {
+		name = "minecraft:double_stone_slab4"
+	}
 	rid, ok := stateRuntimeIDs[state.HashBlock(state.Block{Name: name, Properties: properties})]
 	return rid, ok
 }
@@ -88,6 +113,31 @@ func ItemRuntimeIDToName(runtimeID int32) (name string, found bool) {
 func ItemNameToRuntimeID(name string) (runtimeID int32, found bool) {
 	if updatedName, ok := aliasMappings[name]; ok {
 		name = updatedName
+	}
+	if name == "minecraft:double_stone_block_slab" {
+		name = "minecraft:real_double_stone_slab"
+	}
+	if name == "minecraft:double_stone_block_slab2" {
+		name = "minecraft:real_double_stone_slab2"
+	}
+	if name == "minecraft:double_stone_block_slab3" {
+		name = "minecraft:real_double_stone_slab3"
+	}
+	if name == "minecraft:double_stone_block_slab4" {
+		name = "minecraft:real_double_stone_slab4"
+	}
+
+	if name == "minecraft:stone_block_slab" {
+		name = "minecraft:double_stone_slab"
+	}
+	if name == "minecraft:stone_block_slab2" {
+		name = "minecraft:double_stone_slab2"
+	}
+	if name == "minecraft:stone_block_slab3" {
+		name = "minecraft:double_stone_slab3"
+	}
+	if name == "minecraft:stone_block_slab4" {
+		name = "minecraft:double_stone_slab4"
 	}
 	rid, ok := itemNamesToRuntimeIDs[name]
 	return rid, ok

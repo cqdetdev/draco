@@ -1,55 +1,44 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
-	"fmt"
-	"io/ioutil"
-	"log"
-	"net"
-	"os"
-	"sync"
-
-	// "sync"
-
 	"github.com/cqdetdev/draco/draco"
 	"github.com/pelletier/go-toml"
 	"github.com/sandertv/gophertunnel/minecraft"
-	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
+	"github.com/sandertv/gophertunnel/minecraft/auth"
 	"golang.org/x/oauth2"
+	"io/ioutil"
+	"log"
+	"os"
+	"sync"
 )
 
-// The following program implements a proxy that forwards players from one local address to a remote address.
 func main() {
-	l := log.Default()
-	c := readConfig()
-	if err := draco.InitializeToken(l); err != nil {
-		log.Fatal(err)
-	}
+	conf := readConfig()
+	source := tokenSource()
 
-	p, err := minecraft.NewForeignStatusProvider(c.Connection.RemoteAddress)
+	p, err := minecraft.NewForeignStatusProvider(conf.Connection.RemoteAddress)
 	if err != nil {
 		panic(err)
 	}
 
-	li, err := minecraft.ListenConfig{
+	listener, err := minecraft.ListenConfig{
 		AcceptedProtocols: []minecraft.Protocol{
 			draco.Protocol{},
 		},
 		StatusProvider: p,
-	}.Listen("raknet", c.Connection.LocalAddress)
+	}.Listen("raknet", conf.Connection.LocalAddress)
 	if err != nil {
 		panic(err)
 	}
-
-	defer li.Close()
-
+	defer listener.Close()
 	for {
-		conn, err := li.Accept()
+		conn, err := listener.Accept()
 		if err != nil {
 			panic(err)
 		}
-
-		go handleConn(conn.(*minecraft.Conn), li, c, draco.TokenSrc)
+		go handleConn(conn.(*minecraft.Conn), listener, conf, source)
 	}
 }
 
@@ -153,9 +142,33 @@ func readConfig() config {
 	return c
 }
 
-func packetHandle(header packet.Header, payload []byte, src net.Addr, dst net.Addr) {
-	log := fmt.Sprintf("%v -> %v (0x%X)\n", src, dst, header.PacketID)
-	f, _ := os.OpenFile("log.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	f.WriteString(log)
-	f.Close()
+// tokenSource returns a token source for using with a gophertunnel client. It either reads it from the
+// token.tok file if cached or requests logging in with a device code.
+func tokenSource() oauth2.TokenSource {
+	check := func(err error) {
+		if err != nil {
+			panic(err)
+		}
+	}
+	token := new(oauth2.Token)
+	tokenData, err := ioutil.ReadFile("token.tok")
+	if err == nil {
+		_ = json.Unmarshal(tokenData, token)
+	} else {
+		token, err = auth.RequestLiveToken()
+		check(err)
+	}
+	src := auth.RefreshTokenSource(token)
+	_, err = src.Token()
+	if err != nil {
+		// The cached refresh token expired and can no longer be used to obtain a new token. We require the
+		// user to log in again and use that token instead.
+		token, err = auth.RequestLiveToken()
+		check(err)
+		src = auth.RefreshTokenSource(token)
+	}
+	tok, _ := src.Token()
+	b, _ := json.Marshal(tok)
+	_ = ioutil.WriteFile("token.tok", b, 0644)
+	return src
 }

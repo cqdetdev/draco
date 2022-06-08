@@ -42,7 +42,7 @@ var (
 )
 
 // ConvertToLatest ...
-func (p Protocol) ConvertToLatest(pk packet.Packet) packet.Packet {
+func (p Protocol) ConvertToLatest(pk packet.Packet, _ *minecraft.Conn) []packet.Packet {
 	switch latest := pk.(type) {
 	case *packet.MobEquipment:
 		latest.NewItem.Stack = upgradeItemStack(latest.NewItem.Stack)
@@ -65,11 +65,11 @@ func (p Protocol) ConvertToLatest(pk packet.Packet) packet.Packet {
 		}
 	}
 	// TODO: more translators?
-	return pk
+	return []packet.Packet{pk}
 }
 
 // ConvertFromLatest ...
-func (p Protocol) ConvertFromLatest(pk packet.Packet) packet.Packet {
+func (p Protocol) ConvertFromLatest(pk packet.Packet, _ *minecraft.Conn) []packet.Packet {
 	switch latest := pk.(type) {
 	case *packet.PacketViolationWarning:
 		fmt.Printf("Violation %d (%d): %v\n", latest.PacketID, latest.Severity, latest.ViolationContext)
@@ -132,7 +132,7 @@ func (p Protocol) ConvertFromLatest(pk packet.Packet) packet.Packet {
 			BuildPlatform:           latest.BuildPlatform,
 		}
 		earlier.HeldItem.Stack = downgradeItemStack(latest.HeldItem.Stack)
-		return earlier
+		return []packet.Packet{earlier}
 	case *packet.StartGame:
 		earlier := &legacy.StartGame{
 			EntityUniqueID:                 latest.EntityUniqueID,
@@ -204,7 +204,7 @@ func (p Protocol) ConvertFromLatest(pk packet.Packet) packet.Packet {
 				})
 			}
 		}
-		return earlier
+		return []packet.Packet{earlier}
 	case *packet.LevelChunk:
 		if latest.SubChunkRequestMode == protocol.SubChunkRequestModeLegacy {
 			readBuf := bytes.NewBuffer(latest.RawPayload)
@@ -242,24 +242,24 @@ func (p Protocol) ConvertFromLatest(pk packet.Packet) packet.Packet {
 		}
 		latest.SubChunkEntries = entries
 	case *packet.AddVolumeEntity:
-		return &legacy.AddVolumeEntity{
+		return []packet.Packet{&legacy.AddVolumeEntity{
 			EntityRuntimeID:    latest.EntityRuntimeID,
 			EntityMetadata:     latest.EntityMetadata,
 			EncodingIdentifier: latest.EncodingIdentifier,
 			InstanceIdentifier: latest.InstanceIdentifier,
 			EngineVersion:      latest.EngineVersion,
-		}
+		}}
 	case *packet.RemoveVolumeEntity:
-		return &legacy.RemoveVolumeEntity{EntityRuntimeID: latest.EntityRuntimeID}
+		return []packet.Packet{&legacy.RemoveVolumeEntity{EntityRuntimeID: latest.EntityRuntimeID}}
 	case *packet.SpawnParticleEffect:
-		return &legacy.SpawnParticleEffect{
+		return []packet.Packet{&legacy.SpawnParticleEffect{
 			Dimension:      latest.Dimension,
 			EntityUniqueID: latest.EntityUniqueID,
 			Position:       latest.Position,
 			ParticleName:   latest.ParticleName,
-		}
+		}}
 	}
-	return pk
+	return []packet.Packet{pk}
 }
 
 // dataKeyVariant is used for falling blocks and fake texts. This is necessary for falling block runtime ID translation.
