@@ -39,6 +39,10 @@ func (p Protocol) Packets() packet.Pool {
 var (
 	// air is the runtime ID of an air block.
 	air, _ = latestmappings.StateToRuntimeID("minecraft:air", nil)
+	// infoBlock is the runtime ID of an info block.
+	infoBlock, _ = latestmappings.StateToRuntimeID("minecraft:info_update", nil)
+	// infoItem is the runtime ID of an info item.
+	infoItem, _ = latestmappings.ItemNameToRuntimeID("minecraft:info_update")
 	// worldRange is hardcoded to the overworld world range.
 	// TODO: Dimensions support.
 	worldRange = cube.Range{-64, 319}
@@ -84,7 +88,19 @@ func (p Protocol) ConvertFromLatest(pk packet.Packet, _ *minecraft.Conn) []packe
 	case *packet.SetActorData:
 		downgradeEntityMetadata(latest.EntityMetadata)
 	case *packet.AddActor:
+		earlier := legacypackets.AddActor{}
+		earlier.EntityUniqueID = latest.EntityUniqueID
+		earlier.EntityRuntimeID = latest.EntityRuntimeID
+		earlier.EntityType = latest.EntityType
+		earlier.Position = latest.Position
+		earlier.Velocity = latest.Velocity
+		earlier.Pitch = latest.Pitch
+		earlier.Yaw = latest.Yaw
+		earlier.HeadYaw = latest.HeadYaw
+		earlier.Attributes = latest.Attributes
 		downgradeEntityMetadata(latest.EntityMetadata)
+		earlier.EntityMetadata = latest.EntityMetadata
+		return []packet.Packet{&earlier}
 	case *packet.CraftingData:
 		recipes := make([]protocol.Recipe, 0, len(latest.Recipes))
 		for _, r := range latest.Recipes {
@@ -300,7 +316,8 @@ func downgradeBlockRuntimeID(latestRID uint32) uint32 {
 	}
 	earlierRuntimeID, found := legacymappings.StateToRuntimeID(name, properties)
 	if !found {
-		panic(fmt.Errorf("downgrade block runtime id: could not find runtime id for name: %v", name))
+		// logrus.Errorf("downgrade block runtime id: could not find runtime id for name: %v", name)
+		return infoBlock
 	}
 	return earlierRuntimeID
 }
@@ -386,7 +403,8 @@ func downgradeItemRuntimeID(latestRID int32) int32 {
 	}
 	earlierRuntimeID, found := legacymappings.ItemNameToRuntimeID(name)
 	if !found {
-		panic(fmt.Errorf("downgrade item runtime id: could not find runtime id for name: %v", name))
+		// logrus.Errorf("downgrade item runtime id: could not find runtime id for name: %v", name)
+		return infoItem
 	}
 	return earlierRuntimeID
 }
