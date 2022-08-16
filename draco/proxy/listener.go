@@ -3,6 +3,7 @@ package proxy
 import (
 	"errors"
 
+	"github.com/cqdetdev/draco/draco"
 	"github.com/df-mc/dragonfly/server"
 	"github.com/df-mc/dragonfly/server/player"
 	"github.com/df-mc/dragonfly/server/session"
@@ -21,6 +22,9 @@ func (o *Draco) Listen(srv *server.Server, name string, requirePacks bool) error
 		StatusProvider:       minecraft.NewStatusProvider(name),
 		ResourcePacks:        srv.Resources(),
 		TexturePacksRequired: requirePacks,
+		AcceptedProtocols: []minecraft.Protocol{
+			draco.Protocol{},
+		},
 	}.Listen("raknet", o.addr)
 	if err != nil {
 		return err
