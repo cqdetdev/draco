@@ -76,7 +76,6 @@ func (p Protocol) ConvertToLatest(pk packet.Packet, _ *minecraft.Conn) []packet.
 
 // ConvertFromLatest ...
 func (p Protocol) ConvertFromLatest(pk packet.Packet, _ *minecraft.Conn) []packet.Packet {
-	logrus.Infof("Converting from latest %X", pk.ID())
 	switch latest := pk.(type) {
 	case *packet.PacketViolationWarning:
 		logrus.Infof("Violation %X (%d): (Context: %s)\n", latest.PacketID, latest.Severity, latest.ViolationContext)

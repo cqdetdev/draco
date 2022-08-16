@@ -12,12 +12,19 @@ import (
 	"github.com/pelletier/go-toml"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/auth"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/oauth2"
 )
 
 func main() {
 	conf := readConfig()
 	source := tokenSource()
+
+	logrus.SetFormatter(&logrus.TextFormatter{
+		ForceColors:     true,
+		FullTimestamp:   true,
+		TimestampFormat: "15:04:05",
+	})
 
 	p, err := minecraft.NewForeignStatusProvider(conf.Connection.RemoteAddress)
 	if err != nil {
@@ -43,6 +50,9 @@ func main() {
 		panic(err)
 	}
 	defer listener.Close()
+
+	logrus.Infof("Listening to %s", conf.Connection.RemoteAddress)
+
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
@@ -89,6 +99,7 @@ func handleConn(conn *minecraft.Conn, listener *minecraft.Listener, c config, sr
 			if err := serverConn.WritePacket(pk); err != nil {
 				if disconnect, ok := errors.Unwrap(err).(minecraft.DisconnectError); ok {
 					_ = listener.Disconnect(conn, disconnect.Error())
+					logrus.Infof("Disconnected from server (%s)", disconnect.Error())
 				}
 				return
 			}
@@ -102,6 +113,7 @@ func handleConn(conn *minecraft.Conn, listener *minecraft.Listener, c config, sr
 			if err != nil {
 				if disconnect, ok := errors.Unwrap(err).(minecraft.DisconnectError); ok {
 					_ = listener.Disconnect(conn, disconnect.Error())
+					logrus.Infof("Disconnected from server (%s)", disconnect.Error())
 				}
 				return
 			}
