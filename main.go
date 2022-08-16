@@ -3,15 +3,16 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"io/ioutil"
+	"log"
+	"os"
+	"sync"
+
 	"github.com/cqdetdev/draco/draco"
 	"github.com/pelletier/go-toml"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/auth"
 	"golang.org/x/oauth2"
-	"io/ioutil"
-	"log"
-	"os"
-	"sync"
 )
 
 func main() {

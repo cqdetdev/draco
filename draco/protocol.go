@@ -3,14 +3,17 @@ package draco
 import (
 	"bytes"
 	"fmt"
+
 	"github.com/cqdetdev/draco/draco/chunk"
 	"github.com/cqdetdev/draco/draco/latestmappings"
 	"github.com/cqdetdev/draco/draco/legacymappings"
 	"github.com/cqdetdev/draco/draco/legacypackets"
+	"github.com/cqdetdev/draco/draco/legacystructures"
 	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
+	"github.com/sirupsen/logrus"
 )
 
 // Protocol is the protocol used to support the Minecraft 1.18.10 protocol (486).
@@ -44,10 +47,13 @@ var (
 // ConvertToLatest ...
 func (p Protocol) ConvertToLatest(pk packet.Packet, _ *minecraft.Conn) []packet.Packet {
 	switch latest := pk.(type) {
+	case *packet.PacketViolationWarning:
+		logrus.Infof("Violation %X (%d): %v\n", latest.PacketID, latest.Severity, latest.ViolationContext)
 	case *packet.MobEquipment:
 		latest.NewItem.Stack = upgradeItemStack(latest.NewItem.Stack)
 	case *packet.PlayerAuthInput:
 		latest.ItemInteractionData.HeldItem.Stack = upgradeItemStack(latest.ItemInteractionData.HeldItem.Stack)
+		latest.InteractionModel = packet.InteractionModelCrosshair
 	case *packet.InventoryTransaction:
 		actions := make([]protocol.InventoryAction, 0, len(latest.Actions))
 		for _, action := range latest.Actions {
@@ -70,9 +76,10 @@ func (p Protocol) ConvertToLatest(pk packet.Packet, _ *minecraft.Conn) []packet.
 
 // ConvertFromLatest ...
 func (p Protocol) ConvertFromLatest(pk packet.Packet, _ *minecraft.Conn) []packet.Packet {
+	logrus.Infof("Converting from latest %X", pk.ID())
 	switch latest := pk.(type) {
 	case *packet.PacketViolationWarning:
-		fmt.Printf("Violation %d (%d): %v\n", latest.PacketID, latest.Severity, latest.ViolationContext)
+		logrus.Infof("Violation %X (%d): (Context: %s)\n", latest.PacketID, latest.Severity, latest.ViolationContext)
 	case *packet.UpdateBlock:
 		latest.NewBlockRuntimeID = downgradeBlockRuntimeID(latest.NewBlockRuntimeID)
 	case *packet.SetActorData:
@@ -107,29 +114,42 @@ func (p Protocol) ConvertFromLatest(pk packet.Packet, _ *minecraft.Conn) []packe
 		latest.Content = items
 	case *packet.InventorySlot:
 		latest.NewItem.Stack = downgradeItemStack(latest.NewItem.Stack)
+	case *packet.UpdateAttributes:
+		earlier := legacypackets.UpdateAttributes{}
+		earlier.EntityRuntimeID = latest.EntityRuntimeID
+		earlier.Attributes = []legacystructures.Attribute{}
+		for _, attr := range latest.Attributes {
+			earlier.Attributes = append(earlier.Attributes, legacystructures.Attribute{
+				Name:    attr.Name,
+				Value:   attr.Value,
+				Max:     attr.Max,
+				Min:     attr.Min,
+				Default: attr.Default,
+			})
+		}
+		return []packet.Packet{&earlier}
+	case *packet.NetworkChunkPublisherUpdate:
+		earlier := legacypackets.NetworkChunkPublisherUpdate{}
+		earlier.Position = latest.Position
+		earlier.Radius = latest.Radius
+		return []packet.Packet{&earlier}
 	case *packet.AddPlayer:
 		earlier := &legacypackets.AddPlayer{
-			UUID:                    latest.UUID,
-			Username:                latest.Username,
-			EntityUniqueID:          latest.EntityUniqueID,
-			EntityRuntimeID:         latest.EntityRuntimeID,
-			PlatformChatID:          latest.PlatformChatID,
-			Position:                latest.Position,
-			Velocity:                latest.Velocity,
-			Pitch:                   latest.Pitch,
-			Yaw:                     latest.Yaw,
-			HeadYaw:                 latest.HeadYaw,
-			HeldItem:                latest.HeldItem,
-			EntityMetadata:          latest.EntityMetadata,
-			Flags:                   latest.Flags,
-			CommandPermissionLevel:  latest.CommandPermissionLevel,
-			ActionPermissions:       latest.ActionPermissions,
-			PermissionLevel:         latest.PermissionLevel,
-			CustomStoredPermissions: latest.CustomStoredPermissions,
-			PlayerUniqueID:          latest.PlayerUniqueID,
-			EntityLinks:             latest.EntityLinks,
-			DeviceID:                latest.DeviceID,
-			BuildPlatform:           latest.BuildPlatform,
+			UUID:            latest.UUID,
+			Username:        latest.Username,
+			EntityUniqueID:  latest.EntityUniqueID,
+			EntityRuntimeID: latest.EntityRuntimeID,
+			PlatformChatID:  latest.PlatformChatID,
+			Position:        latest.Position,
+			Velocity:        latest.Velocity,
+			Pitch:           latest.Pitch,
+			Yaw:             latest.Yaw,
+			HeadYaw:         latest.HeadYaw,
+			HeldItem:        latest.HeldItem,
+			EntityMetadata:  latest.EntityMetadata,
+			EntityLinks:     latest.EntityLinks,
+			DeviceID:        latest.DeviceID,
+			BuildPlatform:   latest.BuildPlatform,
 		}
 		earlier.HeldItem.Stack = downgradeItemStack(latest.HeldItem.Stack)
 		return []packet.Packet{earlier}
@@ -168,7 +188,7 @@ func (p Protocol) ConvertFromLatest(pk packet.Packet, _ *minecraft.Conn) []packe
 			ExperimentsPreviouslyToggled:   latest.ExperimentsPreviouslyToggled,
 			BonusChestEnabled:              latest.BonusChestEnabled,
 			StartWithMapEnabled:            latest.StartWithMapEnabled,
-			PlayerPermissions:              latest.PlayerPermissions,
+			PlayerPermissions:              int32(latest.PlayerPermissions),
 			ServerChunkTickRadius:          latest.ServerChunkTickRadius,
 			HasLockedBehaviourPack:         latest.HasLockedBehaviourPack,
 			HasLockedTexturePack:           latest.HasLockedTexturePack,
@@ -265,7 +285,7 @@ func (p Protocol) ConvertFromLatest(pk packet.Packet, _ *minecraft.Conn) []packe
 // dataKeyVariant is used for falling blocks and fake texts. This is necessary for falling block runtime ID translation.
 const dataKeyVariant = 2
 
-// downgradeSubChunk translates a 1.18.30 sub-chunk to a 1.18.12 one, updating all palette entries with the appropriate
+// downgradeSubChunk translates a 1.19.10 sub-chunk to a 1.18.12 one, updating all palette entries with the appropriate
 // runtime IDs.
 func downgradeSubChunk(s *chunk.SubChunk) {
 	for _, l := range s.Layers() {
@@ -273,7 +293,7 @@ func downgradeSubChunk(s *chunk.SubChunk) {
 	}
 }
 
-// downgradeBlockRuntimeID translates a 1.18.30 runtime ID to a 1.18.12 one.
+// downgradeBlockRuntimeID translates a 1.19.10 runtime ID to a 1.18.12 one.
 func downgradeBlockRuntimeID(latestRID uint32) uint32 {
 	name, properties, found := latestmappings.RuntimeIDToState(latestRID)
 	if !found {
@@ -286,7 +306,7 @@ func downgradeBlockRuntimeID(latestRID uint32) uint32 {
 	return earlierRuntimeID
 }
 
-// upgradeBlockRuntimeID translates a 1.18.12 block runtime ID to a 1.18.30 one.
+// upgradeBlockRuntimeID translates a 1.18.12 block runtime ID to a 1.19.10 one.
 func upgradeBlockRuntimeID(id uint32) uint32 {
 	name, properties, found := legacymappings.RuntimeIDToState(id)
 	if !found {
@@ -299,14 +319,14 @@ func upgradeBlockRuntimeID(id uint32) uint32 {
 	return latestRuntimeID
 }
 
-// downgradeEntityMetadata translates a 1.18.30 entity metadata to a 1.18.12 one.
+// downgradeEntityMetadata translates a 1.19.10 entity metadata to a 1.18.12 one.
 func downgradeEntityMetadata(metadata map[uint32]any) {
 	if latestRID, ok := metadata[dataKeyVariant]; ok {
 		metadata[dataKeyVariant] = int32(downgradeBlockRuntimeID(uint32(latestRID.(int32))))
 	}
 }
 
-// downgradeRecipe downgrades a 1.18.30 recipe to a 1.18.12 one.
+// downgradeRecipe downgrades a 1.19.10 recipe to a 1.18.12 one.
 func downgradeRecipe(latestInput []protocol.RecipeIngredientItem, latestOutput []protocol.ItemStack) ([]protocol.RecipeIngredientItem, []protocol.ItemStack) {
 	input := make([]protocol.RecipeIngredientItem, 0, len(latestInput))
 	output := make([]protocol.ItemStack, 0, len(latestOutput))
@@ -322,7 +342,7 @@ func downgradeRecipe(latestInput []protocol.RecipeIngredientItem, latestOutput [
 	return input, output
 }
 
-// downgradeItemStack translates a 1.18.30 item stack to a 1.18.12 one, updating all palette entries with the appropriate
+// downgradeItemStack translates a 1.19.10 item stack to a 1.18.12 one, updating all palette entries with the appropriate
 // runtime IDs.
 func downgradeItemStack(st protocol.ItemStack) protocol.ItemStack {
 	if st.BlockRuntimeID > 0 {
@@ -334,7 +354,7 @@ func downgradeItemStack(st protocol.ItemStack) protocol.ItemStack {
 	return st
 }
 
-// upgradeItemStack translates a 1.18.12 item stack to a 1.18.30 one, updating all palette entries with the appropriate
+// upgradeItemStack translates a 1.18.12 item stack to a 1.19.10 one, updating all palette entries with the appropriate
 // runtime IDs.
 func upgradeItemStack(st protocol.ItemStack) protocol.ItemStack {
 	if st.BlockRuntimeID > 0 {
@@ -346,7 +366,7 @@ func upgradeItemStack(st protocol.ItemStack) protocol.ItemStack {
 	return st
 }
 
-// upgradeItemRuntimeID translates a 1.18.12 item runtime ID to a 1.18.30 one.
+// upgradeItemRuntimeID translates a 1.18.12 item runtime ID to a 1.19.10 one.
 func upgradeItemRuntimeID(latestRID int32) int32 {
 	name, found := legacymappings.ItemRuntimeIDToName(latestRID)
 	if !found {
@@ -359,7 +379,7 @@ func upgradeItemRuntimeID(latestRID int32) int32 {
 	return earlierRuntimeID
 }
 
-// downgradeItemRuntimeID translates a 1.18.30 item runtime ID to a 1.18.12 one.
+// downgradeItemRuntimeID translates a 1.19.10 item runtime ID to a 1.18.12 one.
 func downgradeItemRuntimeID(latestRID int32) int32 {
 	name, found := latestmappings.ItemRuntimeIDToName(latestRID)
 	if !found {

@@ -1,4 +1,4 @@
 
 [Connection]
-  LocalAddress = "0.0.0.0:19130"
-  RemoteAddress = "127.0.0.1:19132"
+  LocalAddress = "0.0.0.0:19132"
+  RemoteAddress = "vasar.land:19132"
