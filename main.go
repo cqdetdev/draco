@@ -64,9 +64,9 @@ func main() {
 
 func handleConn(conn *minecraft.Conn, listener *minecraft.Listener, c config, src oauth2.TokenSource) {
 	serverConn, err := minecraft.Dialer{
-		TokenSource: src,
-		ClientData:  conn.ClientData(),
-		// TODO: Properly support the client cache.
+		TokenSource:       src,
+		ClientData:        conn.ClientData(),
+		EnableClientCache: false,
 	}.Dial("raknet", c.Connection.RemoteAddress)
 	if err != nil {
 		panic(err)

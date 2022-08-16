@@ -4,8 +4,8 @@ import (
 	"errors"
 
 	"github.com/cqdetdev/draco/draco"
+	"github.com/cqdetdev/draco/draco/proxy/player"
 	"github.com/df-mc/dragonfly/server"
-	"github.com/df-mc/dragonfly/server/player"
 	"github.com/df-mc/dragonfly/server/session"
 	"github.com/sandertv/gophertunnel/minecraft"
 )
@@ -54,12 +54,14 @@ func (l listener) Accept() (session.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	return c.(session.Conn), err
+	p := player.NewPlayer(c.(*minecraft.Conn))
+	l.o.players <- p
+	return p, err
 }
 
 // Disconnect disconnects a connection from the Listener with a reason.
 func (l listener) Disconnect(conn session.Conn, reason string) error {
-	return l.Listener.Disconnect(conn.(*minecraft.Conn), reason)
+	return l.Listener.Disconnect(conn.(*player.Player).Conn(), reason)
 }
 
 // Close closes the Listener.

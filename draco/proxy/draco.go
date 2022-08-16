@@ -4,7 +4,7 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/df-mc/dragonfly/server/player"
+	"github.com/cqdetdev/draco/draco/proxy/player"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sirupsen/logrus"
