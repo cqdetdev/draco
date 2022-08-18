@@ -50,23 +50,53 @@ var (
 
 // ConvertToLatest ...
 func (p Protocol) ConvertToLatest(pk packet.Packet, _ *minecraft.Conn) []packet.Packet {
-	switch latest := pk.(type) {
+	switch earlier := pk.(type) {
 	case *packet.PacketViolationWarning:
-		logrus.Infof("Violation %X (%d): %v\n", latest.PacketID, latest.Severity, latest.ViolationContext)
+		logrus.Infof("Violation %X (%d): %v\n", earlier.PacketID, earlier.Severity, earlier.ViolationContext)
 	case *packet.MobEquipment:
-		latest.NewItem.Stack = upgradeItemStack(latest.NewItem.Stack)
+		earlier.NewItem.Stack = upgradeItemStack(earlier.NewItem.Stack)
 	case *packet.PlayerAuthInput:
-		latest.ItemInteractionData.HeldItem.Stack = upgradeItemStack(latest.ItemInteractionData.HeldItem.Stack)
-		latest.InteractionModel = packet.InteractionModelCrosshair
+		latest := &packet.PlayerAuthInput{}
+		latest.Pitch = earlier.Pitch
+		latest.Yaw = earlier.Yaw
+		latest.Position = earlier.Position
+		latest.HeadYaw = earlier.HeadYaw
+		latest.MoveVector = earlier.MoveVector
+		latest.InputData = earlier.InputData
+		latest.InputMode = earlier.InputMode
+		latest.PlayMode = earlier.PlayMode
+		latest.InteractionModel = packet.InteractionModelClassic // ?
+		latest.GazeDirection = earlier.GazeDirection
+		latest.Tick = earlier.Tick
+		latest.Delta = earlier.Delta
+		latest.ItemInteractionData = earlier.ItemInteractionData
+		latest.ItemStackRequest = earlier.ItemStackRequest
+		latest.BlockActions = earlier.BlockActions
+		return []packet.Packet{latest}
+	case *packet.ModalFormResponse:
+		latest := &packet.ModalFormResponse{}
+		latest.FormID = earlier.FormID
+		latest.ResponseData = earlier.ResponseData
+		if len(latest.ResponseData) > 0 {
+			latest.HasResponseData = true
+		} else {
+			latest.HasResponseData = false
+		}
+		if latest.CancelReason == packet.ModalFormCancelReasonUserBusy || latest.CancelReason == packet.ModalFormCancelReasonUserClosed {
+			latest.HasCancelReason = true
+		} else {
+			latest.HasCancelReason = false
+		}
+		return []packet.Packet{latest}
 	case *packet.InventoryTransaction:
-		actions := make([]protocol.InventoryAction, 0, len(latest.Actions))
-		for _, action := range latest.Actions {
+		actions := make([]protocol.InventoryAction, 0, len(earlier.Actions))
+		for _, action := range earlier.Actions {
 			action.OldItem.Stack = upgradeItemStack(action.OldItem.Stack)
 			action.NewItem.Stack = upgradeItemStack(action.NewItem.Stack)
 			actions = append(actions, action)
 		}
-		latest.Actions = actions
-		switch data := latest.TransactionData.(type) {
+		earlier.Actions = actions
+		switch data := earlier.TransactionData.(type) {
 		case *protocol.UseItemTransactionData:
 			data.HeldItem.Stack = upgradeItemStack(data.HeldItem.Stack)
 			data.BlockRuntimeID = upgradeBlockRuntimeID(data.BlockRuntimeID)
@@ -88,7 +118,7 @@ func (p Protocol) ConvertFromLatest(pk packet.Packet, _ *minecraft.Conn) []packe
 	case *packet.SetActorData:
 		downgradeEntityMetadata(latest.EntityMetadata)
 	case *packet.AddActor:
-		earlier := legacypackets.AddActor{}
+		earlier := &legacypackets.AddActor{}
 		earlier.EntityUniqueID = latest.EntityUniqueID
 		earlier.EntityRuntimeID = latest.EntityRuntimeID
 		earlier.EntityType = latest.EntityType
@@ -100,7 +130,7 @@ func (p Protocol) ConvertFromLatest(pk packet.Packet, _ *minecraft.Conn) []packe
 		earlier.Attributes = latest.Attributes
 		downgradeEntityMetadata(latest.EntityMetadata)
 		earlier.EntityMetadata = latest.EntityMetadata
-		return []packet.Packet{&earlier}
+		return []packet.Packet{earlier}
 	case *packet.CraftingData:
 		recipes := make([]protocol.Recipe, 0, len(latest.Recipes))
 		for _, r := range latest.Recipes {
@@ -130,7 +160,7 @@ func (p Protocol) ConvertFromLatest(pk packet.Packet, _ *minecraft.Conn) []packe
 	case *packet.InventorySlot:
 		latest.NewItem.Stack = downgradeItemStack(latest.NewItem.Stack)
 	case *packet.UpdateAttributes:
-		earlier := legacypackets.UpdateAttributes{}
+		earlier := &legacypackets.UpdateAttributes{}
 		earlier.EntityRuntimeID = latest.EntityRuntimeID
 		earlier.Attributes = []legacystructures.Attribute{}
 		for _, attr := range latest.Attributes {
@@ -142,12 +172,12 @@ func (p Protocol) ConvertFromLatest(pk packet.Packet, _ *minecraft.Conn) []packe
 				Default: attr.Default,
 			})
 		}
-		return []packet.Packet{&earlier}
+		return []packet.Packet{earlier}
 	case *packet.NetworkChunkPublisherUpdate:
-		earlier := legacypackets.NetworkChunkPublisherUpdate{}
+		earlier := &legacypackets.NetworkChunkPublisherUpdate{}
 		earlier.Position = latest.Position
 		earlier.Radius = latest.Radius
-		return []packet.Packet{&earlier}
+		return []packet.Packet{earlier}
 	case *packet.AddPlayer:
 		earlier := &legacypackets.AddPlayer{
 			UUID:            latest.UUID,
