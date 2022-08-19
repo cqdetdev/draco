@@ -16,6 +16,13 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// currentFormID is the ID of the current form that the player has open
+var currentFormID uint32
+
+var changedCommandArgs = []uint32{
+	7, 9, 16, 38, 46, 47, 50, 52, 56, 69,
+}
+
 // Protocol is the protocol used to support the Minecraft 1.18.10 protocol (486).
 type Protocol struct {
 	minecraft.Protocol
@@ -33,7 +40,10 @@ func (Protocol) Ver() string {
 
 // Packets ...
 func (p Protocol) Packets() packet.Pool {
-	return packet.NewPool()
+	pool := packet.NewPool()
+	pool[packet.IDPlayerAuthInput] = func() packet.Packet { return &legacypackets.PlayerAuthInput{} }
+	pool[packet.IDModalFormResponse] = func() packet.Packet { return &legacypackets.ModalFormResponse{} }
+	return pool
 }
 
 var (
@@ -49,13 +59,14 @@ var (
 )
 
 // ConvertToLatest ...
-func (p Protocol) ConvertToLatest(pk packet.Packet, _ *minecraft.Conn) []packet.Packet {
+func (p Protocol) ConvertToLatest(pk packet.Packet, c *minecraft.Conn) []packet.Packet {
 	switch earlier := pk.(type) {
 	case *packet.PacketViolationWarning:
 		logrus.Infof("Violation %X (%d): %v\n", earlier.PacketID, earlier.Severity, earlier.ViolationContext)
 	case *packet.MobEquipment:
 		earlier.NewItem.Stack = upgradeItemStack(earlier.NewItem.Stack)
-	case *packet.PlayerAuthInput:
+		return []packet.Packet{earlier}
+	case *legacypackets.PlayerAuthInput:
 		latest := &packet.PlayerAuthInput{}
 		latest.Pitch = earlier.Pitch
 		latest.Yaw = earlier.Yaw
@@ -73,11 +84,12 @@ func (p Protocol) ConvertToLatest(pk packet.Packet, _ *minecraft.Conn) []packet.
 		latest.ItemStackRequest = earlier.ItemStackRequest
 		latest.BlockActions = earlier.BlockActions
 		return []packet.Packet{latest}
-	case *packet.ModalFormResponse:
+	case *legacypackets.ModalFormResponse:
 		latest := &packet.ModalFormResponse{}
-		latest.FormID = earlier.FormID
+		latest.FormID = currentFormID
 		latest.ResponseData = earlier.ResponseData
-		if len(latest.ResponseData) > 0 {
+		nullBytes := []byte("null\n")
+		if !bytes.Equal(latest.ResponseData, nullBytes) {
 			latest.HasResponseData = true
 		} else {
 			latest.HasResponseData = false
@@ -104,6 +116,7 @@ func (p Protocol) ConvertToLatest(pk packet.Packet, _ *minecraft.Conn) []packet.
 			data.HeldItem.Stack = upgradeItemStack(data.HeldItem.Stack)
 		}
 	}
+
 	// TODO: more translators?
 	return []packet.Packet{pk}
 }
@@ -117,6 +130,12 @@ func (p Protocol) ConvertFromLatest(pk packet.Packet, _ *minecraft.Conn) []packe
 		latest.NewBlockRuntimeID = downgradeBlockRuntimeID(latest.NewBlockRuntimeID)
 	case *packet.SetActorData:
 		downgradeEntityMetadata(latest.EntityMetadata)
+	case *packet.ModalFormRequest:
+		currentFormID = latest.FormID
+	case *packet.AvailableCommands:
+		// cmds := latest.Commands
+		// TODO: Update command arg values...
+		return []packet.Packet{latest}
 	case *packet.AddActor:
 		earlier := &legacypackets.AddActor{}
 		earlier.EntityUniqueID = latest.EntityUniqueID
