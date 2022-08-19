@@ -157,6 +157,9 @@ func readConfig() config {
 	if c.Connection.LocalAddress == "" {
 		c.Connection.LocalAddress = "0.0.0.0:19132"
 	}
+	if c.Connection.RemoteAddress == "" {
+		c.Connection.RemoteAddress = "vasar.land:19132"
+	}
 	data, _ = toml.Marshal(c)
 	if err := ioutil.WriteFile("config.toml", data, 0644); err != nil {
 		log.Fatalf("error writing config file: %v", err)
