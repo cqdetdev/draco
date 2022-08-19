@@ -19,6 +19,12 @@ also uses dragonfly chunk code for chunk translation
 this should work fairly flawlessly but the code is absolutely dogshit as of now and can be significantly improved, with
 potential for versions alongside 1.19.20 too. this also doesn't forward packs automatically, at least for now.
 
+expect 20-30ms delay increase as it is a network based proxy
+
+# Current Issues
+- command arguments are not handled properly for the latest version
+- only works on dragonfly servers
+
 # Further Notes
 
 fuck mojang
