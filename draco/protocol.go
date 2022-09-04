@@ -87,17 +87,18 @@ func (p Protocol) ConvertToLatest(pk packet.Packet, c *minecraft.Conn) []packet.
 	case *legacypackets.ModalFormResponse:
 		latest := &packet.ModalFormResponse{}
 		latest.FormID = currentFormID
-		latest.ResponseData = earlier.ResponseData
+		latestResponseData, _ := latest.ResponseData.Value()
 		nullBytes := []byte("null\n")
-		if !bytes.Equal(latest.ResponseData, nullBytes) {
-			latest.HasResponseData = true
+		if !bytes.Equal(latestResponseData, nullBytes) {
+			latest.ResponseData = protocol.Option[[]byte](nil)
 		} else {
-			latest.HasResponseData = false
+			latest.ResponseData = protocol.Option(earlier.ResponseData)
 		}
-		if latest.CancelReason == packet.ModalFormCancelReasonUserBusy || latest.CancelReason == packet.ModalFormCancelReasonUserClosed {
-			latest.HasCancelReason = true
+		latestCancelReason, _ := latest.CancelReason.Value()
+		if latestCancelReason == packet.ModalFormCancelReasonUserBusy || latestCancelReason == packet.ModalFormCancelReasonUserClosed {
+			latest.CancelReason = protocol.Option(latestCancelReason)
 		} else {
-			latest.HasCancelReason = false
+			latest.CancelReason = protocol.Option[uint8](0)
 		}
 		return []packet.Packet{latest}
 	case *packet.InventoryTransaction:
@@ -146,7 +147,13 @@ func (p Protocol) ConvertFromLatest(pk packet.Packet, _ *minecraft.Conn) []packe
 		earlier.Pitch = latest.Pitch
 		earlier.Yaw = latest.Yaw
 		earlier.HeadYaw = latest.HeadYaw
-		earlier.Attributes = latest.Attributes
+		var earlierAttributes []protocol.Attribute
+		for _, attr := range latest.Attributes {
+			earlierAttributes = append(earlierAttributes, protocol.Attribute{
+				AttributeValue: attr,
+			})
+		}
+		earlier.Attributes = earlierAttributes
 		downgradeEntityMetadata(latest.EntityMetadata)
 		earlier.EntityMetadata = latest.EntityMetadata
 		return []packet.Packet{earlier}
@@ -218,6 +225,7 @@ func (p Protocol) ConvertFromLatest(pk packet.Packet, _ *minecraft.Conn) []packe
 		earlier.HeldItem.Stack = downgradeItemStack(latest.HeldItem.Stack)
 		return []packet.Packet{earlier}
 	case *packet.StartGame:
+		feg, _ := latest.ForceExperimentalGameplay.Value()
 		earlier := &legacypackets.StartGame{
 			EntityUniqueID:                 latest.EntityUniqueID,
 			EntityRuntimeID:                latest.EntityRuntimeID,
@@ -266,7 +274,7 @@ func (p Protocol) ConvertFromLatest(pk packet.Packet, _ *minecraft.Conn) []packe
 			LimitedWorldDepth:              latest.LimitedWorldDepth,
 			NewNether:                      latest.NewNether,
 			EducationSharedResourceURI:     latest.EducationSharedResourceURI,
-			ForceExperimentalGameplay:      latest.ForceExperimentalGameplay,
+			ForceExperimentalGameplay:      feg,
 			LevelID:                        latest.LevelID,
 			WorldName:                      latest.WorldName,
 			TemplateContentIdentity:        latest.TemplateContentIdentity,

@@ -103,7 +103,7 @@ func (pk *AddPlayer) Marshal(w *protocol.Writer) {
 	w.Varuint32(&pk.PermissionLevel)
 	w.Varuint32(&pk.CustomStoredPermissions)
 	w.Int64(&pk.PlayerUniqueID)
-	protocol.WriteEntityLinks(w, &pk.EntityLinks)
+	protocol.Slice(w, &pk.EntityLinks)
 	w.String(&pk.DeviceID)
 	w.Int32(&pk.BuildPlatform)
 }
@@ -128,7 +128,7 @@ func (pk *AddPlayer) Unmarshal(r *protocol.Reader) {
 	r.Varuint32(&pk.PermissionLevel)
 	r.Varuint32(&pk.CustomStoredPermissions)
 	r.Int64(&pk.PlayerUniqueID)
-	protocol.EntityLinks(r, &pk.EntityLinks)
+	protocol.Slice(r, &pk.EntityLinks)
 	r.String(&pk.DeviceID)
 	r.Int32(&pk.BuildPlatform)
 }

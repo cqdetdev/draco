@@ -4,11 +4,12 @@ a multiversion gophertunnel proxy to join the latest MC version without renderdr
 
 # How to use?
 1. Download the draco executable off https://github.com/cqdetdev/draco/releases/tag/v0.0.3
-2. Run the draco.exe file
-3. Follow the link and code the program tells you, this is how the proxy knows that you are you and can authenicate to MS services
-4. Once you authenticate, wait for a "Listening" message to pop up
-5. Create a server with address `127.0.0.1` and default port
-6. Join this server and enjoy!
+2. Run `CheckNetIsolation LoopbackExempt -a -n="Microsoft.MinecraftUWP_8wekyb3d8bbwe"` as an **administrator** in Powershell
+3. Run the draco.exe file
+4. Follow the link and code the program tells you, this is how the proxy knows that you are you and can authenicate to MS services
+5. Once you authenticate, wait for a "Listening" message to pop up
+6. Create a server with address `127.0.0.1` and default port
+7. Join this server and enjoy!
 
 # Purpose
 
