@@ -19,6 +19,8 @@ import (
 // currentFormID is the ID of the current form that the player has open
 var currentFormID uint32
 
+var sentModalForm bool
+
 var changedCommandArgs = []uint32{
 	7, 9, 16, 38, 46, 47, 50, 52, 56, 69,
 }
@@ -85,20 +87,16 @@ func (p Protocol) ConvertToLatest(pk packet.Packet, c *minecraft.Conn) []packet.
 		latest.BlockActions = earlier.BlockActions
 		return []packet.Packet{latest}
 	case *legacypackets.ModalFormResponse:
+		if sentModalForm {
+			sentModalForm = false
+			break
+		}
 		latest := &packet.ModalFormResponse{}
 		latest.FormID = currentFormID
-		latestResponseData, _ := latest.ResponseData.Value()
-		nullBytes := []byte("null\n")
-		if !bytes.Equal(latestResponseData, nullBytes) {
-			latest.ResponseData = protocol.Option[[]byte](nil)
-		} else {
-			latest.ResponseData = protocol.Option(earlier.ResponseData)
-		}
-		latestCancelReason, _ := latest.CancelReason.Value()
-		if latestCancelReason == packet.ModalFormCancelReasonUserBusy || latestCancelReason == packet.ModalFormCancelReasonUserClosed {
-			latest.CancelReason = protocol.Option(latestCancelReason)
-		} else {
-			latest.CancelReason = protocol.Option[uint8](0)
+		latest.ResponseData = protocol.Option(earlier.ResponseData)
+		latest.CancelReason = protocol.Option[uint8](packet.ModalFormCancelReasonUserClosed)
+		if !sentModalForm {
+			sentModalForm = true
 		}
 		return []packet.Packet{latest}
 	case *packet.InventoryTransaction:
