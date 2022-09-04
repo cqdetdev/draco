@@ -9,6 +9,7 @@ import (
 // the form sent. It contains the options/properties selected by the player, or a JSON encoded 'null' if
 // the form was closed by clicking the X at the top right corner of the form.
 type ModalFormResponse struct {
+	packet.ModalFormResponse
 	// FormID is the form ID of the form the client has responded to. It is the same as the ID sent in the
 	// ModalFormRequest, and may be used to identify which form was submitted.
 	FormID uint32
