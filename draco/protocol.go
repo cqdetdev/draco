@@ -37,7 +37,7 @@ func (Protocol) ID() int32 {
 
 // Ver ...
 func (Protocol) Ver() string {
-	return "1.18.10"
+	return "1.18.12"
 }
 
 // Packets ...
@@ -114,10 +114,11 @@ func (p Protocol) ConvertToLatest(pk packet.Packet, c *minecraft.Conn) []packet.
 		case *protocol.UseItemOnEntityTransactionData:
 			data.HeldItem.Stack = upgradeItemStack(data.HeldItem.Stack)
 		}
+	default:
+		return []packet.Packet{pk}
 	}
 
-	// TODO: more translators?
-	return []packet.Packet{pk}
+	return nil
 }
 
 // ConvertFromLatest ...
@@ -348,8 +349,10 @@ func (p Protocol) ConvertFromLatest(pk packet.Packet, _ *minecraft.Conn) []packe
 			Position:       latest.Position,
 			ParticleName:   latest.ParticleName,
 		}}
+	default:
+		return []packet.Packet{pk}
 	}
-	return []packet.Packet{pk}
+	return nil
 }
 
 // dataKeyVariant is used for falling blocks and fake texts. This is necessary for falling block runtime ID translation.
