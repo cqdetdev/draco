@@ -89,7 +89,7 @@ func (p Protocol) ConvertToLatest(pk packet.Packet, c *minecraft.Conn) []packet.
 	case *legacypackets.ModalFormResponse:
 		if sentModalForm {
 			sentModalForm = false
-			break
+			return []packet.Packet{}
 		}
 		latest := &packet.ModalFormResponse{}
 		latest.FormID = currentFormID
@@ -114,11 +114,9 @@ func (p Protocol) ConvertToLatest(pk packet.Packet, c *minecraft.Conn) []packet.
 		case *protocol.UseItemOnEntityTransactionData:
 			data.HeldItem.Stack = upgradeItemStack(data.HeldItem.Stack)
 		}
-	default:
-		return []packet.Packet{pk}
 	}
 
-	return nil
+	return []packet.Packet{pk}
 }
 
 // ConvertFromLatest ...
@@ -349,10 +347,8 @@ func (p Protocol) ConvertFromLatest(pk packet.Packet, _ *minecraft.Conn) []packe
 			Position:       latest.Position,
 			ParticleName:   latest.ParticleName,
 		}}
-	default:
-		return []packet.Packet{pk}
 	}
-	return nil
+	return []packet.Packet{pk}
 }
 
 // dataKeyVariant is used for falling blocks and fake texts. This is necessary for falling block runtime ID translation.
